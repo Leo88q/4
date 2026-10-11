@@ -1,0 +1,20 @@
+# dependencies / build
+node_modules/
+dist/
+build/
+*.log
+
+# runtime data (server persistence)
+data/
+
+# vendored upstream (fetched via scripts/fetch-upstream.sh, pinned commit)
+third_party/
+
+# editors / OS
+.DS_Store
+.idea/
+.vscode/
+desktop.ini
+
+# test / coverage
+coverage/

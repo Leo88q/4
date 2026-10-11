@@ -1,0 +1,87 @@
+# API «Палимпсеста»
+
+Base URL: `http://<host>:<port>` (по умолчанию `:8787`). Все ответы — JSON. POST-эндпоинты принимают `content-type: application/json`.
+
+## Системные
+
+### `GET /api/health`
+```json
+{ "ok": true, "simVersion": 1, "chainMode": "mock", "bookHead": "…", "bookVerified": true }
+```
+
+### `GET /api/daily`
+Заказ дня: сид и публичная спецификация пазла. **Ground truth диагноза не отдаётся.**
+```json
+{
+  "ok": true,
+  "date": "2026-10-11",
+  "seed": "palimpsest-daily-v1:2026-10-11",
+  "spec": { "version": 1, "seed": "…", "epoch": "Модерн", "title": "Святой с книгой", "year": 1809, "N": 32, "par": 52 },
+  "chainEntropyBound": false
+}
+```
+
+## Игрок и сессии
+
+### `POST /api/player` — `{ "name": "Мара" }`
+→ `{ "ok": true, "player": { "id": "plr_…", "name": "Мара", "address": "…" } }`
+
+### `POST /api/session` — `{ "playerId": "plr_…", "kind": "daily" | "private" }`
+→ `{ "ok": true, "sessionId": "ses_…", "seed": "…", "spec": {…}, "startedAt": 0 }`
+
+Сессия живёт 30 минут (`SESSION_TTL_MS`). Пазл клиент генерирует локально из `seed` модулем `@palimpsest/sim`.
+
+### `POST /api/session/:id/actions` — `{ "actions": [Action, …] }`
+Потоковая отправка ленты. Каждый `Action`:
+
+```json
+{ "type": "solvent", "t": 1800000000000, "x": 0.5, "y": 0.5, "r": 0.09, "strength": 0.55 }
+```
+
+| type | поля |
+|---|---|
+| `diagnose` | `findings: string[]` (до 8) |
+| `solvent` | `x, y, r, strength` |
+| `wipe` | `x, y, r` |
+| `patch` | `x, y, w, h, material` (0 бумага / 1 лён / 2 шёлк) |
+| `brush` | `x, y, r, color: [r,g,b]` |
+| `varnish` | `kind` (0 мастикс / 1 шеллак / 2 синтетика), `thickness` |
+| `finish` | — |
+
+Координаты — нормализованные `[0,1]`. Между действиями ≥ 60 мс, всего ≤ 800. Ответ: `{ ok, accepted, total }`; ошибки: `too_fast:*`, `time_travel`, `bad_color`, `unknown_type:*` и др.
+
+### `POST /api/session/:id/finish` — `{ "actions": [ …, { "type": "finish", "t": … } ], "clientStateHash": "…" }`
+Сервер переигрывает **всю** ленту из сида и принимает решение. Ответ:
+
+```json
+{
+  "ok": true,
+  "artifact": {
+    "id": "art_…", "score": { "total": 87, "components": { "accuracy": 91, "integrity": 80, "rationality": 88, "discoveries": 75 } },
+    "stateHash": "…", "stateHashMatch": true, "actionsMerkle": "…",
+    "bookSeq": 3, "flags": [], "provenanceCid": "ar://…"
+  },
+  "bookHead": "…",
+  "leaderboard": [ … ]
+}
+```
+
+Флаги античита: `haste`, `thin_log`, `metronome`, `client_mismatch`.
+
+## Провенанс и репутация
+
+| Метод | Путь | Что даёт |
+|---|---|---|
+| GET | `/api/artifact/:id` | артефакт + merkle-корень + записи Книги |
+| GET | `/api/artifact/:id/metadata` | метаданные cNFT (формат Приложения C CONCEPT.md) |
+| GET | `/api/leaderboard?date=YYYY-MM-DD` | топ-20 дня |
+| GET | `/api/attestation/:playerId` | Аттестат: работы, средний Индекс, ранг |
+| GET | `/api/book` | Книга Слоёв: верификация цепочки + последние записи |
+
+## Проверка третьей стороной
+
+1. `actionsMerkle` == `buildMerkle(actionHashes).root` (`@palimpsest/common`).
+2. `simulate(seed, actions).stateHash` == `artifact.stateHash` (`@palimpsest/sim`).
+3. Запись `bookSeq` целостна в `/api/book` (или в `commit_act` on-chain).
+
+Пример живого вызова — `packages/server/public/app.js` (демо делает ровно это).

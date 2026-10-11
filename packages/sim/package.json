@@ -1,0 +1,14 @@
+{
+  "name": "@palimpsest/sim",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Restory.Sim v1 — deterministic art-restoration simulation: puzzle generation, irreversible actions, server scoring (Индекс Палимпсеста).",
+  "license": "Apache-2.0",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "dependencies": {
+    "@palimpsest/common": "0.1.0"
+  }
+}

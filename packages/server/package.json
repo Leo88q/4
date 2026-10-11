@@ -1,0 +1,15 @@
+{
+  "name": "@palimpsest/server",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Palimpsest backend: sessions, server-authoritative re-simulation, anti-cheat, Book of Layers, leaderboards, attestations, web demo.",
+  "license": "Apache-2.0",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@palimpsest/common": "0.1.0",
+    "@palimpsest/sim": "0.1.0"
+  }
+}

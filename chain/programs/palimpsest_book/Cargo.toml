@@ -1,0 +1,24 @@
+[package]
+name = "palimpsest_book"
+version = "0.1.0"
+description = "Append-only provenance commitments for the Palimpsest platform (Книга Слоёв)."
+license = "Apache-2.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "palimpsest_book"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = "0.30.1"
+
+[profile.release]
+overflow-checks = true

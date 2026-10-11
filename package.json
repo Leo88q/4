@@ -1,0 +1,22 @@
+{
+  "name": "palimpsest",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Palimpsest — social art-restoration platform: deterministic restoration sim, server-authoritative validation, provenance book. Based on google/restory (Apache 2.0).",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "packages/common",
+    "packages/sim",
+    "packages/server"
+  ],
+  "scripts": {
+    "start": "node packages/server/src/index.js",
+    "test": "node --test \"packages/*/test/*.test.js\"",
+    "fetch-upstream": "bash scripts/fetch-upstream.sh",
+    "demo": "npm start"
+  }
+}

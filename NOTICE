@@ -1,0 +1,28 @@
+PALIMPSEST / «Палимпсест»
+Copyright 2026 The Palimpsest Authors
+
+This product includes software developed as "Restory"
+(https://github.com/google/restory),
+Copyright Google LLC and authors PT Zhang, Stefan Linssen,
+Thibaut Pilipenko, Tom Granger,
+licensed under the Apache License, Version 2.0.
+
+This is not an officially supported Google product.
+Modifications and additions are documented in the project's public repository.
+
+--------------------------------------------------------------------------------
+Third-party components
+--------------------------------------------------------------------------------
+
+Restory (https://github.com/google/restory)
+  Copyright Google LLC, PT Zhang, Stefan Linssen, Thibaut Pilipenko, Tom Granger
+  License: Apache License 2.0 (see third_party/restory/LICENSE.txt after running
+  scripts/fetch-upstream.sh, and LICENSE in this repository)
+  Usage: Unity client base (gameplay mechanics of artwork restoration).
+  The upstream sources are NOT vendored into this repository; they are fetched
+  at a pinned commit by scripts/fetch-upstream.sh to keep license compliance
+  auditable and this repository lean. Attribution is retained in README.md,
+  in the application's "About" screen, and in store listings of any release.
+
+  This product is not affiliated with, endorsed by, or connected to Google.
+  "Google" and "Restory" trademarks are not used in product naming or marketing.

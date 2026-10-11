@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Палимпсест — Мастерская</title>
+  <link rel="stylesheet" href="/style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "@palimpsest/common": "/vendor/common/index.js",
+        "@palimpsest/sim": "/vendor/sim/index.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <h1>ПАЛИМПСЕСТ</h1>
+      <p class="tagline">Под каждым слоем — чья-то история</p>
+    </div>
+    <div class="player-box">
+      <input id="playerName" placeholder="имя мастера" maxlength="24" />
+      <button id="btnEnter">В Мастерскую</button>
+      <div id="playerInfo" class="muted"></div>
+    </div>
+  </header>
+
+  <main>
+    <section class="card" id="orderCard">
+      <h2>Заказ дня</h2>
+      <div id="orderInfo" class="muted">…</div>
+      <div class="row">
+        <button id="btnStart" disabled>Начать реставрацию</button>
+        <button id="btnPrivate" disabled>Учебный заказ</button>
+      </div>
+      <div id="sessionInfo" class="muted"></div>
+    </section>
+
+    <section class="card canvas-card">
+      <div class="toolbar">
+        <div class="tools">
+          <button class="tool active" data-tool="solvent">Растворитель</button>
+          <button class="tool" data-tool="wipe">Салфетка</button>
+          <button class="tool" data-tool="patch">Заплатка</button>
+          <button class="tool" data-tool="brush">Кисть</button>
+          <button class="tool" data-tool="xray">Око мастера</button>
+        </div>
+        <label id="strengthWrap">сила <input id="strength" type="range" min="10" max="100" value="55" /></label>
+        <label id="colorWrap" class="hidden">цвет <input id="brushColor" type="color" value="#7a5c46" /></label>
+        <label id="materialWrap" class="hidden">материал
+          <select id="material">
+            <option value="0">бумага</option>
+            <option value="1" selected>лён</option>
+            <option value="2">шёлк</option>
+          </select>
+        </label>
+      </div>
+      <canvas id="canvas" width="512" height="512"></canvas>
+      <div class="row">
+        <button id="btnFinish" disabled>Акт реставрации</button>
+        <button id="btnDiagnose" disabled>Диагноз</button>
+      </div>
+      <div id="diagnoseBox" class="hidden diagnose">
+        <p>Что вы видите? (фиксируется до первого действия)</p>
+        <label><input type="checkbox" value="varnish_darkening" /> потемнение лака</label>
+        <label><input type="checkbox" value="loss" /> утраты краски</label>
+        <label><input type="checkbox" value="tear" /> разрывы холста</label>
+        <label><input type="checkbox" value="water_stain" /> след влаги</label>
+        <label><input type="checkbox" value="old_restoration" /> старая реставрация</label>
+        <button id="btnDiagnoseSend">Зафиксировать диагноз</button>
+      </div>
+    </section>
+
+    <section class="card" id="resultCard">
+      <h2>Акт реставрации</h2>
+      <div id="resultInfo" class="muted">завершите реставрацию, чтобы увидеть Индекс Палимпсеста</div>
+    </section>
+
+    <section class="card">
+      <h2>Лучшие за день</h2>
+      <ol id="leaderboard" class="muted"><li>пока пусто</li></ol>
+      <h2>Книга Слоёв</h2>
+      <div id="bookInfo" class="muted">…</div>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      «Палимпсест» — демонстрационная вертикаль платформы.
+      Основано на открытом проекте Restory (google/restory), © Google LLC и авторы, Apache License 2.0.
+      Не является официально поддерживаемым продуктом Google.
+    </p>
+  </footer>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
