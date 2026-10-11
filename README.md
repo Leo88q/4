@@ -17,9 +17,17 @@ npm start          # сервер + веб-демо на http://localhost:8787
 Unity-клиент (форк Restory):
 
 ```bash
-bash scripts/fetch-upstream.sh   # upstream на пине 67b94f1 -> third_party/restory
-# далее: client/unity/INTEGRATION.md
+bash scripts/integrate-upstream.sh
+# фетчит upstream на пине 67b94f1, собирает форк в third_party/restory:
+#   Assets/Scripts/Palimpsest/  — модули платформы (симуляция, мост, хук)
+#   declareFInishController.cs  — патч с пометкой «Modified by…» (Apache 2.0 §4(b))
+#   PALIMPSEST_NOTICE.txt       — атрибуция внутри форка
+# детали: client/unity/INTEGRATION.md
 ```
+
+Хранилище: по умолчанию JSON-снапшот; для PostgreSQL задайте `DATABASE_URL`
+(схема `packages/server/src/schema.sql`, тесты на PGlite). Запись Книги в
+Solana — `CHAIN_MODE=solana` + переменные из `chain/README.md`.
 
 ## Структура
 
@@ -31,10 +39,10 @@ bash scripts/fetch-upstream.sh   # upstream на пине 67b94f1 -> third_party
 | **[docs/api.md](./docs/api.md)** | HTTP API |
 | `packages/common` | sha256 (портативный), sfc32 RNG, Merkle — детерминизм JS ↔ C# |
 | `packages/sim` | `Restory.Sim` v1: генерация пазла, необратимые действия, Индекс Палимпсеста |
-| `packages/server` | API, сессии, античит, mock-Книга Слоёв, веб-демо |
-| `chain/` | Anchor-программа `palimpsest_book` + SDK commitments |
+| `packages/server` | API, сессии, античит, Книга Слоёв, хранилища JSON/PostgreSQL, веб-демо |
+| `chain/` | Anchor-программа `palimpsest_book` + SDK инструкций Solana |
 | `client/unity/` | C#-порт симуляции, `PalimpsestBridge`, паритет-векторы, интеграция |
-| `scripts/` | `fetch-upstream.sh`, `gen-vectors.js` |
+| `scripts/` | `fetch-upstream.sh`, `integrate-upstream.sh` (сборка форка Restory), `gen-vectors.js` |
 
 ## Принципы (из концепции)
 

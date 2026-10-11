@@ -43,8 +43,17 @@ export class Store {
     fs.renameSync(tmp, this.file);
   }
 
+  // ---------- async entity interface (shared with PgStore) ----------
+  async getPlayer(id) { return this.players.get(id) ?? null; }
+  async putPlayer(player) { this.players.set(player.id, player); this.save(); }
+  async getSession(id) { return this.sessions.get(id) ?? null; }
+  async putSession(session) { this.sessions.set(session.id, session); this.save(); }
+  async getArtifact(id) { return this.artifacts.get(id) ?? null; }
+  async putArtifact(a) { this.artifacts.set(a.id, a); this.save(); }
+  async appendBook(rec) { return this.book.append(rec); }
+
   /** Best daily results per player. */
-  dailyLeaderboard(date) {
+  async dailyLeaderboard(date) {
     const rows = [];
     for (const a of this.artifacts.values()) {
       if (a.kind !== 'daily' || a.date !== date) continue;
@@ -61,7 +70,7 @@ export class Store {
     })).map((r, i) => ({ ...r, rank: i + 1 }));
   }
 
-  attestation(playerId) {
+  async attestation(playerId) {
     const works = [...this.artifacts.values()].filter((a) => a.playerId === playerId);
     const avg = works.length
       ? Math.round(works.reduce((s, a) => s + a.score.total, 0) / works.length)

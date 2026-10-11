@@ -50,8 +50,8 @@ docs/                lore, архитектура, API
 
 ## Книга Слоёв: две реализации, одна схема
 
-* **Mock** (`CHAIN_MODE=mock`, по умолчанию): append-only хеш-цепочка в `data/db.json`. Каждая запись хэширует предыдущую; `GET /api/book` верифицирует цепочку; порча записи видна (`brokenAt`). Тест `api.test.js` это доказывает.
-* **Solana** (`chain/programs/palimpsest_book`): те же записи как `commit_act` / `append_note` с `state_hash`, `actions_merkle`, `uri` (паспорт в Arweave/IPFS). Полные логи в цепь не ложатся — только корни.
+* **Mock** (`CHAIN_MODE=mock`, по умолчанию): append-only хеш-цепочка (файл или таблица `book`). Каждая запись хэширует предыдущую; `GET /api/book` верифицирует цепочку; порча записи видна (`brokenAt`). Тест `api.test.js` это доказывает.
+* **Solana** (`CHAIN_MODE=solana`): сервер через `@palimpsest/chain-sdk` кодирует и отправляет `commit_act` (`state_hash`, `actions_merkle`, `uri`). Без настроенных RPC/ключей возвращает полностью закодированный payload (`solana-prepared`) — ничего не теряется. Код: `packages/server/src/chain-writer.js`, билдеры инструкций: `chain/sdk/solana.js` (байтовый layout закреплён тестами).
 
 В обоих режимах действует правило лора: **«Книгу нельзя переписать — только дописать»**.
 
@@ -69,12 +69,21 @@ docs/                lore, архитектура, API
 
 ## Хранение и масштабирование
 
-Сейчас — in-memory + JSON-снапшот (`Store`). Интерфейс намеренно маленький: игроки/сессии/артефакты/книга. Продакшен-замена:
+Два реализованных адаптера с общим интерфейсом (`getPlayer/putPlayer/…/appendBook`):
+
+| Режим | Когда | Реализация |
+|---|---|---|
+| JSON-снапшот | по умолчанию, демо | `server/store.js` → `data/db.json` |
+| **PostgreSQL** | `DATABASE_URL` задан | `server/store.postgres.js` + `server/schema.sql` (JSONB + колонки для запросов; Книга — append-only таблица `book`) |
+
+Каталог-замена в продакшене:
 
 * PostgreSQL — сущности + ленты действий (append-only таблицы);
 * Redis — сессии, лимиты, лидерборды;
 * Arweave/IPFS — паспорта провенанса;
 * Anchor-программа — commitments; cNFT (Bubblegum) — минт артефактов.
+
+PostgreSQL-путь покрыт тестами на **PGlite** (настоящий Postgres в WASM, без сервера): полный API-флоу, SQL-агрегаты аттестата, пересборка Книги из строк и обнаружение порчи (`packages/server/test/pgstore.test.js`).
 
 ## Модель безопасности
 

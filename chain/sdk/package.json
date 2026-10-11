@@ -1,0 +1,16 @@
+{
+  "name": "@palimpsest/chain-sdk",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Solana instruction builders for the Book of Layers (palimpsest_book).",
+  "license": "Apache-2.0",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./solana": "./solana.js"
+  },
+  "dependencies": {
+    "@palimpsest/common": "0.1.0",
+    "@solana/web3.js": "^1.95.0"
+  }
+}

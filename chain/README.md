@@ -7,7 +7,8 @@
 | Путь | Что это |
 |---|---|
 | `programs/palimpsest_book/` | Anchor-программа: `initialize_book`, `commit_act`, `append_note`, `init_attestation`, `record_work`, `record_fake_exposed` |
-| `sdk/index.js` | Построение payload для инструкций + mock-адаптер (используется сервером в режиме `CHAIN_MODE=mock`) |
+| `sdk/index.js` | Payload-конструкторы записей + mock-адаптер |
+| `sdk/solana.js` | **Билдеры реальных инструкций** (`@solana/web3.js`): дискриминаторы Anchor, Borsh-кодирование, PDA `act`/`attestation`; байтовый layout закреплён юнит-тестами |
 
 ## Режимы работы сервера
 

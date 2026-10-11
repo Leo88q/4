@@ -9,7 +9,12 @@
     "start": "node src/index.js"
   },
   "dependencies": {
+    "@palimpsest/chain-sdk": "0.1.0",
     "@palimpsest/common": "0.1.0",
-    "@palimpsest/sim": "0.1.0"
+    "@palimpsest/sim": "0.1.0",
+    "pg": "^8.12.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.2.0"
   }
 }

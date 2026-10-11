@@ -6,18 +6,20 @@ Base URL: `http://<host>:<port>` (по умолчанию `:8787`). Все от�
 
 ### `GET /api/health`
 ```json
-{ "ok": true, "simVersion": 1, "chainMode": "mock", "bookHead": "…", "bookVerified": true }
+{ "ok": true, "simVersion": 1, "chainMode": "mock", "storage": "json", "bookHead": "…", "bookVerified": true }
 ```
 
 ### `GET /api/daily`
-Заказ дня: сид и публичная спецификация пазла. **Ground truth диагноза не отдаётся.**
+Заказ дня: сид и публичная спецификация пазла. **Ground truth диагноза не отдаётся.** Коммит-раскрытие цепной случайности (CONCEPT.md §7.4): `entropyCommit` публикуется заранее, `entropyRevealed` становится `true` после раскрытия (`CHAIN_ENTROPY_COMMIT` / `CHAIN_ENTROPY`).
 ```json
 {
   "ok": true,
   "date": "2026-10-11",
   "seed": "palimpsest-daily-v1:2026-10-11",
   "spec": { "version": 1, "seed": "…", "epoch": "Модерн", "title": "Святой с книгой", "year": 1809, "N": 32, "par": 52 },
-  "chainEntropyBound": false
+  "chainEntropyBound": false,
+  "entropyCommit": null,
+  "entropyRevealed": false
 }
 ```
 
@@ -61,12 +63,13 @@ Base URL: `http://<host>:<port>` (по умолчанию `:8787`). Все от�
     "stateHash": "…", "stateHashMatch": true, "actionsMerkle": "…",
     "bookSeq": 3, "flags": [], "provenanceCid": "ar://…"
   },
+  "chainCommit": { "mode": "mock", "localSeq": 3 },
   "bookHead": "…",
   "leaderboard": [ … ]
 }
 ```
 
-Флаги античита: `haste`, `thin_log`, `metronome`, `client_mismatch`.
+`chainCommit.mode`: `mock` (локальная Книга) | `solana` (есть `signature`) | `solana-prepared` (payload закодирован, отправка при настройке RPC) | `solana-unconfigured`. Флаги античита: `haste`, `thin_log`, `metronome`, `client_mismatch`.
 
 ## Провенанс и репутация
 

@@ -11,11 +11,12 @@
   "workspaces": [
     "packages/common",
     "packages/sim",
-    "packages/server"
+    "packages/server",
+    "chain/sdk"
   ],
   "scripts": {
     "start": "node packages/server/src/index.js",
-    "test": "node --test \"packages/*/test/*.test.js\"",
+    "test": "node --test \"packages/*/test/*.test.js\" \"chain/sdk/test/*.test.js\"",
     "fetch-upstream": "bash scripts/fetch-upstream.sh",
     "demo": "npm start"
   }

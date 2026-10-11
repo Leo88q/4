@@ -57,9 +57,22 @@ function serveStatic(req, res) {
   fs.createReadStream(filePath).pipe(res);
 }
 
-export function startServer(overrides = {}) {
-  const store = new Store(config.dataDir);
-  const api = createApi(store);
+/**
+ * Storage factory: PostgreSQL when DATABASE_URL is set, JSON snapshot otherwise.
+ */
+export async function createStore() {
+  if (config.databaseUrl) {
+    const { PgStore } = await import('./store.postgres.js');
+    return PgStore.connect(config.databaseUrl);
+  }
+  return new Store(config.dataDir);
+}
+
+export async function startServer(overrides = {}) {
+  const store = overrides.store ?? (await createStore());
+  const { createChainWriter } = await import('./chain-writer.js');
+  const chainWriter = overrides.chainWriter ?? (await createChainWriter());
+  const api = createApi(store, { chainWriter });
   const server = http.createServer(async (req, res) => {
     if (req.url.startsWith('/api/')) return api(req, res);
     return serveStatic(req, res);

@@ -11,6 +11,10 @@ export const config = {
   chainMode: process.env.CHAIN_MODE ?? 'mock',
   /** commit-reveal chain entropy for the daily seed (CONCEPT.md §7.4) */
   chainEntropy: process.env.CHAIN_ENTROPY ?? '',
+  /** published commitment sha256(chainEntropy), revealed at day end */
+  chainEntropyCommit: process.env.CHAIN_ENTROPY_COMMIT ?? '',
+  /** PostgreSQL DSN; empty = JSON snapshot store (dev/demo) */
+  databaseUrl: process.env.DATABASE_URL ?? '',
   maxBodyBytes: 2 * 1024 * 1024,
   rateLimit: { windowMs: 60_000, maxPosts: 240 },
 };

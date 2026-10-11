@@ -79,8 +79,14 @@ function pseudoAddress(name) {
   return sha256Hex(`palimpsest:addr:${name}:${process.pid}:${Date.now()}`).slice(0, 44);
 }
 
-/** @param {import('./store.js').Store} store */
-export function createApi(store) {
+/** @param {import('./store.js').Store} store @param {{ chainWriter?: object }} [deps] */
+export function createApi(store, deps = {}) {
+  const chainWriter = deps.chainWriter ?? {
+    mode: config.chainMode,
+    async commitAct(artifact) {
+      return { mode: config.chainMode, localSeq: artifact.bookSeq ?? null };
+    },
+  };
   return async function api(req, res) {
     const url = new URL(req.url, `http://${req.headers.host ?? 'localhost'}`);
     const { pathname } = url;
@@ -101,6 +107,7 @@ export function createApi(store) {
           ok: true,
           simVersion: SIM_VERSION,
           chainMode: config.chainMode,
+          storage: config.databaseUrl ? 'postgres' : 'json',
           bookHead: store.book.head(),
           bookVerified: store.book.verify().ok,
         });
@@ -115,6 +122,8 @@ export function createApi(store) {
           seed,
           spec: publicSpec(puzzle),
           chainEntropyBound: Boolean(config.chainEntropy),
+          entropyCommit: config.chainEntropyCommit || null,
+          entropyRevealed: Boolean(config.chainEntropy),
         });
       }
 
@@ -132,18 +141,18 @@ export function createApi(store) {
 
       if (req.method === 'GET' && pathname === '/api/leaderboard') {
         const date = url.searchParams.get('date') ?? new Date().toISOString().slice(0, 10);
-        return json(res, 200, { ok: true, date, rows: store.dailyLeaderboard(date) });
+        return json(res, 200, { ok: true, date, rows: await store.dailyLeaderboard(date) });
       }
 
       if (req.method === 'GET' && pathname.startsWith('/api/attestation/')) {
         const playerId = pathname.slice('/api/attestation/'.length);
-        return json(res, 200, { ok: true, attestation: store.attestation(playerId) });
+        return json(res, 200, { ok: true, attestation: await store.attestation(playerId) });
       }
 
       if (req.method === 'GET' && pathname.startsWith('/api/artifact/')) {
         const rest = pathname.slice('/api/artifact/'.length);
         const [id, meta] = rest.split('/');
-        const artifact = store.artifacts.get(id);
+        const artifact = await store.getArtifact(id);
         if (!artifact) return bad(res, 404, 'not_found');
         if (meta === 'metadata') {
           return json(res, 200, cNftMetadata(artifact));
@@ -178,13 +187,12 @@ export function createApi(store) {
             address: pseudoAddress(name),
             createdAt: Date.now(),
           };
-          store.players.set(player.id, player);
-          store.save();
+          await store.putPlayer(player);
           return json(res, 200, { ok: true, player });
         }
 
         if (pathname === '/api/session') {
-          const player = store.players.get(body.playerId);
+          const player = await store.getPlayer(body.playerId);
           if (!player) return bad(res, 400, 'unknown_player');
           const kind = body.kind === 'private' ? 'private' : 'daily';
           const seed = kind === 'daily' ? todaySeed() : `palimpsest-private:${player.id}:${Date.now()}`;
@@ -200,8 +208,7 @@ export function createApi(store) {
             finished: false,
             artifactId: null,
           };
-          store.sessions.set(session.id, session);
-          store.save();
+          await store.putSession(session);
           return json(res, 200, {
             ok: true,
             sessionId: session.id,
@@ -213,7 +220,7 @@ export function createApi(store) {
 
         const actMatch = pathname.match(/^\/api\/session\/([^/]+)\/(actions|finish)$/);
         if (actMatch) {
-          const session = store.sessions.get(actMatch[1]);
+          const session = await store.getSession(actMatch[1]);
           if (!session) return bad(res, 404, 'unknown_session');
           if (session.finished) return bad(res, 409, 'already_finished');
           if (Date.now() - session.startedAt > SESSION_TTL_MS) return bad(res, 410, 'session_expired');
@@ -227,7 +234,7 @@ export function createApi(store) {
           session.actions = merged;
 
           if (actMatch[2] === 'actions') {
-            store.save();
+            await store.putSession(session);
             return json(res, 200, { ok: true, accepted: actions.length, total: merged.length });
           }
 
@@ -238,7 +245,7 @@ export function createApi(store) {
           const actionHashes = merged.map((a) => hashObject(a));
           const actionsMerkle = buildMerkle(actionHashes).root;
           const artifactId = newId('art');
-          const player = store.players.get(session.playerId);
+          const player = await store.getPlayer(session.playerId);
           const artifact = {
             id: artifactId,
             kind: session.kind,
@@ -261,7 +268,7 @@ export function createApi(store) {
           artifact.flags = analyzePace(session, result);
           if (artifact.stateHashMatch === false) artifact.flags.push('client_mismatch');
 
-          const bookEntry = store.book.append({
+          const bookEntry = await store.appendBook({
             type: 'act',
             playerId: player.id,
             artifactId,
@@ -277,14 +284,18 @@ export function createApi(store) {
 
           session.finished = true;
           session.artifactId = artifactId;
-          store.artifacts.set(artifactId, artifact);
-          store.save();
+          await store.putArtifact(artifact);
+          await store.putSession(session);
+          await store.save();
+
+          const chainCommit = await chainWriter.commitAct(artifact);
 
           return json(res, 200, {
             ok: true,
             artifact,
+            chainCommit,
             bookHead: store.book.head(),
-            leaderboard: store.dailyLeaderboard(session.kind === 'daily' ? session.date : session.date),
+            leaderboard: await store.dailyLeaderboard(session.date),
           });
         }
       }
