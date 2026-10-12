@@ -83,7 +83,8 @@ export async function startServer(overrides = {}) {
     return serveStatic(req, res);
   });
   const port = overrides.port ?? config.port;
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    server.on('error', reject);
     server.listen(port, config.host, () => {
       resolve({ server, store, port: server.address().port });
     });
@@ -98,5 +99,12 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     console.log(`  данные:      ${config.dataDir}\n`);
     console.log(`  Based on Restory (google/restory), Apache License 2.0.`);
     console.log(`  Not an officially supported Google product.\n`);
+  }).catch((err) => {
+    if (err?.code === 'EADDRINUSE') {
+      console.error(`\n  Порт ${config.port} уже занят другим процессом.`);
+      console.error(`  Запустите на свободном порту:  PORT=8888 npm start\n`);
+      process.exit(1);
+    }
+    throw err;
   });
 }
