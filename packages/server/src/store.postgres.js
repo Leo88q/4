@@ -145,11 +145,77 @@ export class PgStore {
         'SELECT COUNT(*)::int AS n FROM artifacts WHERE player_id = $1 AND total >= 90',
         [playerId],
       )).rows[0].n),
+      pigments: p?.pigments ?? 0,
+      cinnabar: p?.cinnabar ?? 0,
+      fakesExposed: p?.fakesExposed ?? 0,
     };
   }
 
   async save() {
     /* writes are immediate */
+  }
+
+  // ---------- social layer ----------
+  async listArtifacts() {
+    const { rows } = await this.client.query('SELECT data FROM artifacts ORDER BY created_at ASC');
+    return rows.map((r) => parse(r.data));
+  }
+
+  async artifactsByPlayer(playerId) {
+    const { rows } = await this.client.query(
+      'SELECT data FROM artifacts WHERE player_id = $1 ORDER BY created_at ASC',
+      [playerId],
+    );
+    return rows.map((r) => parse(r.data));
+  }
+
+  async getGuild(id) {
+    const { rows } = await this.client.query('SELECT data FROM guilds WHERE id = $1', [id]);
+    return rows.length ? parse(rows[0].data) : null;
+  }
+
+  async putGuild(g) {
+    await this.client.query(
+      `INSERT INTO guilds (id, data) VALUES ($1, $2)
+       ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
+      [g.id, JSON.stringify(g)],
+    );
+  }
+
+  async listGuilds() {
+    const { rows } = await this.client.query('SELECT data FROM guilds ORDER BY created_at ASC');
+    return rows.map((r) => parse(r.data));
+  }
+
+  async getAuction(id) {
+    const { rows } = await this.client.query('SELECT data FROM auctions WHERE id = $1', [id]);
+    return rows.length ? parse(rows[0].data) : null;
+  }
+
+  async putAuction(a) {
+    await this.client.query(
+      `INSERT INTO auctions (id, data, status, ends_at) VALUES ($1, $2, $3, to_timestamp($4))
+       ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, status = EXCLUDED.status, ends_at = EXCLUDED.ends_at`,
+      [a.id, JSON.stringify(a), a.status, a.endsAt / 1000],
+    );
+  }
+
+  async listAuctions() {
+    const { rows } = await this.client.query('SELECT data FROM auctions ORDER BY ends_at DESC LIMIT 50');
+    return rows.map((r) => parse(r.data));
+  }
+
+  async getExhibition(id) {
+    const { rows } = await this.client.query('SELECT data FROM exhibitions WHERE id = $1', [id]);
+    return rows.length ? parse(rows[0].data) : null;
+  }
+
+  async putExhibition(e) {
+    await this.client.query(
+      `INSERT INTO exhibitions (id, data) VALUES ($1, $2)
+       ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
+      [e.id, JSON.stringify(e)],
+    );
   }
 }
 

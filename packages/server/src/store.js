@@ -15,6 +15,9 @@ export class Store {
     this.players = new Map();
     this.sessions = new Map();
     this.artifacts = new Map();
+    this.guilds = new Map();
+    this.auctions = new Map();
+    this.exhibitions = new Map();
     this.book = new Book();
     this.load();
   }
@@ -25,6 +28,9 @@ export class Store {
       this.players = new Map((raw.players ?? []).map((p) => [p.id, p]));
       this.sessions = new Map((raw.sessions ?? []).map((s) => [s.id, s]));
       this.artifacts = new Map((raw.artifacts ?? []).map((a) => [a.id, a]));
+      this.guilds = new Map((raw.guilds ?? []).map((g) => [g.id, g]));
+      this.auctions = new Map((raw.auctions ?? []).map((a) => [a.id, a]));
+      this.exhibitions = new Map((raw.exhibitions ?? []).map((e) => [e.id, e]));
       this.book = new Book(raw.book ?? []);
     } catch {
       /* fresh store */
@@ -38,6 +44,9 @@ export class Store {
       players: [...this.players.values()],
       sessions: [...this.sessions.values()],
       artifacts: [...this.artifacts.values()],
+      guilds: [...this.guilds.values()],
+      auctions: [...this.auctions.values()],
+      exhibitions: [...this.exhibitions.values()],
       book: this.book.entries,
     }));
     fs.renameSync(tmp, this.file);
@@ -51,6 +60,20 @@ export class Store {
   async getArtifact(id) { return this.artifacts.get(id) ?? null; }
   async putArtifact(a) { this.artifacts.set(a.id, a); this.save(); }
   async appendBook(rec) { return this.book.append(rec); }
+  async listArtifacts() { return [...this.artifacts.values()]; }
+  async artifactsByPlayer(playerId) {
+    return [...this.artifacts.values()].filter((a) => a.playerId === playerId);
+  }
+
+  // ---------- social layer ----------
+  async getGuild(id) { return this.guilds.get(id) ?? null; }
+  async putGuild(g) { this.guilds.set(g.id, g); this.save(); }
+  async listGuilds() { return [...this.guilds.values()]; }
+  async getAuction(id) { return this.auctions.get(id) ?? null; }
+  async putAuction(a) { this.auctions.set(a.id, a); this.save(); }
+  async listAuctions() { return [...this.auctions.values()]; }
+  async getExhibition(id) { return this.exhibitions.get(id) ?? null; }
+  async putExhibition(e) { this.exhibitions.set(e.id, e); this.save(); }
 
   /** Best daily results per player. */
   async dailyLeaderboard(date) {
@@ -86,6 +109,9 @@ export class Store {
       rank,
       bestIndex: works.length ? Math.max(...works.map((a) => a.score.total)) : 0,
       titles: works.filter((a) => a.score.total >= 90).length,
+      pigments: player?.pigments ?? 0,
+      cinnabar: player?.cinnabar ?? 0,
+      fakesExposed: player?.fakesExposed ?? 0,
     };
   }
 }

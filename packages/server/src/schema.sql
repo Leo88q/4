@@ -38,3 +38,23 @@ CREATE TABLE IF NOT EXISTS book (
     hash TEXT NOT NULL,
     entry JSONB NOT NULL
 );
+
+-- Social layer (CONCEPT.md §5): Мастерские, Вернисаж, Тихий торг.
+CREATE TABLE IF NOT EXISTS guilds (
+    id       TEXT PRIMARY KEY,
+    data     JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS auctions (
+    id      TEXT PRIMARY KEY,
+    data    JSONB NOT NULL,
+    status  TEXT NOT NULL,
+    ends_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS auctions_status_idx ON auctions (status, ends_at);
+
+CREATE TABLE IF NOT EXISTS exhibitions (
+    id   TEXT PRIMARY KEY,
+    data JSONB NOT NULL
+);

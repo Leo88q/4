@@ -263,6 +263,8 @@ $('btnFinish').addEventListener('click', async () => {
   ui.sim.finished = true;
   render();
   const a = out.artifact;
+  social.myArtifacts.push(a.id);
+  renderSocial();
   const s = a.score;
   $('resultInfo').innerHTML = `
     <div class="total">Индекс Палимпсеста: <b>${s.total}</b> / 100</div>
@@ -294,6 +296,155 @@ async function refreshMeta() {
   $('bookInfo').innerHTML = book.verified
     ? `цепочка целостна ✔ · записей: ${book.total} · вершина ${book.head.slice(0, 16)}…`
     : `цепочка повреждена ✘ (сломана на #${book.brokenAt})`;
+}
+
+// ---------- social layer ----------
+const social = {
+  tab: 'guild',
+  myArtifacts: [], // артефакты этой сессии браузера
+};
+
+document.querySelectorAll('#socialTabs .tool').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    social.tab = btn.dataset.tab;
+    document.querySelectorAll('#socialTabs .tool').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderSocial();
+  });
+});
+
+function needPlayer() {
+  if (!ui.player) {
+    $('socialBody').textContent = 'сначала войдите в Мастерскую (имя мастера сверху)';
+    return false;
+  }
+  return true;
+}
+
+async function renderSocial() {
+  const box = $('socialBody');
+  if (!ui.player) {
+    box.textContent = 'сначала войдите в Мастерскую (имя мастера сверху)';
+    return;
+  }
+  if (social.tab === 'guild') {
+    const [guilds, att] = await Promise.all([api('/api/guilds'), api(`/api/attestation/${ui.player.id}`)]);
+    box.innerHTML = `
+      <p>мой кошелёк: <b>${att.attestation.pigments}</b> пигментов · аттестат: ${att.attestation.rank}</p>
+      <div class="row">
+        <button id="gCreate">Основать Мастерскую</button>
+        <button id="gJoin">Вступить по ID</button>
+      </div>
+      <ol>${(guilds.rows ?? []).map((r) => `
+        <li><b>${r.name}</b> — ${r.status} · престиж ${r.prestige} · участников ${r.members} · работ ${r.works}
+        <button data-gid="${r.guildId}" class="joinG">вступить</button></li>`).join('') || '<li>пока пусто</li>'}</ol>`;
+    $('gCreate').onclick = async () => {
+      const name = prompt('название Мастерской');
+      if (!name) return;
+      const motto = prompt('девиз', '') ?? '';
+      const out = await api('/api/guild', 'POST', { name, motto, playerId: ui.player.id });
+      box.insertAdjacentHTML('beforeend', out.ok ? `<p class="mono">основана ${out.guild.name} · id ${out.guild.id}</p>` : `<p>${out.reason}</p>`);
+      renderSocial();
+    };
+    $('gJoin').onclick = async () => {
+      const gid = prompt('id Мастерской');
+      if (!gid) return;
+      const out = await api(`/api/guild/${gid}/join`, 'POST', { playerId: ui.player.id });
+      if (!out.ok) box.insertAdjacentHTML('beforeend', `<p>${out.reason}</p>`);
+      renderSocial();
+    };
+    box.querySelectorAll('.joinG').forEach((b) => {
+      b.onclick = async () => {
+        const out = await api(`/api/guild/${b.dataset.gid}/join`, 'POST', { playerId: ui.player.id });
+        if (!out.ok) box.insertAdjacentHTML('beforeend', `<p>${out.reason}</p>`);
+        renderSocial();
+      };
+    });
+    return;
+  }
+  if (social.tab === 'vernisage') {
+    const v = (await api('/api/vernissage')).vernissage;
+    box.innerHTML = `
+      <p>сезон ${v.season} · ${v.status} · голосов: ${v.totalVotes}</p>
+      <div class="row"><button id="vSubmit">Выставить свой артефакт</button></div>
+      <ol>${v.entries.map((e) => `
+        <li>«${e.title}» — ${e.guildName} · индекс ${e.total} · голосов <b>${e.votes}</b>
+        <button data-aid="${e.artifactId}" class="voteE">голосовать</button></li>`).join('') || '<li>экспонатов пока нет</li>'}</ol>
+      ${v.results ? `<p class="mono">итоги: ${v.results.map((r) => `#${r.rank} +${r.prize} пигм.`).join(', ')}</p>` : ''}`;
+    $('vSubmit').onclick = async () => {
+      const aid = social.myArtifacts[social.myArtifacts.length - 1] ?? prompt('id артефакта');
+      if (!aid) return;
+      const out = await api('/api/vernissage/submit', 'POST', { playerId: ui.player.id, artifactId: aid });
+      if (!out.ok) box.insertAdjacentHTML('beforeend', `<p>${out.reason}</p>`);
+      renderSocial();
+    };
+    box.querySelectorAll('.voteE').forEach((b) => {
+      b.onclick = async () => {
+        const out = await api('/api/vernissage/vote', 'POST', { playerId: ui.player.id, artifactId: b.dataset.aid });
+        if (!out.ok) box.insertAdjacentHTML('beforeend', `<p>${out.reason}</p>`);
+        renderSocial();
+      };
+    });
+    return;
+  }
+  if (social.tab === 'auction') {
+    const rows = (await api('/api/auctions')).rows ?? [];
+    box.innerHTML = `
+      <div class="row"><button id="aCreate">Выставить артефакт на торг</button></div>
+      <ol>${rows.map((a) => `
+        <li class="mono">${a.id} · лот ${a.artifactId.slice(0, 12)}… · ставок ${a.bidCount} · ${a.status}
+        ${a.status === 'open' ? `<button data-aid="${a.id}" class="bidA">ставка</button>
+        <button data-aid="${a.id}" class="settleA">завершить</button>`
+        : `· цена ${a.price ?? '—'} (комиссия ${a.fee ?? '—'})`}</li>`).join('') || '<li>торгов нет</li>'}</ol>`;
+    $('aCreate').onclick = async () => {
+      const aid = social.myArtifacts[social.myArtifacts.length - 1] ?? prompt('id артефакта');
+      if (!aid) return;
+      const minBid = Number(prompt('минимальная ставка (пигменты)', '10') ?? 10);
+      const out = await api('/api/auction', 'POST', { artifactId: aid, sellerId: ui.player.id, minBid, durationMin: 1 });
+      if (!out.ok) box.insertAdjacentHTML('beforeend', `<p>${out.reason}</p>`);
+      renderSocial();
+    };
+    box.querySelectorAll('.bidA').forEach((b) => {
+      b.onclick = async () => {
+        const amount = Number(prompt('ваша ставка (скрыта до конца торга)', '10') ?? 0);
+        const out = await api(`/api/auction/${b.dataset.aid}/bid`, 'POST', { playerId: ui.player.id, amount });
+        if (!out.ok) box.insertAdjacentHTML('beforeend', `<p>${out.reason}</p>`);
+        renderSocial();
+      };
+    });
+    box.querySelectorAll('.settleA').forEach((b) => {
+      b.onclick = async () => {
+        const out = await api(`/api/auction/${b.dataset.aid}/settle`, 'POST', {});
+        if (!out.ok) box.insertAdjacentHTML('beforeend', `<p>${out.reason}</p>`);
+        renderSocial();
+      };
+    });
+    return;
+  }
+  if (social.tab === 'cases') {
+    const rows = (await api('/api/cases')).rows ?? [];
+    box.innerHTML = rows.length ? rows.map((c) => `
+      <div class="case mono">
+        <b>Дело ${c.artifactId.slice(0, 12)}…</b> — «${c.title}», индекс ${c.index}<br/>
+        улики: флаги [${c.flags.join(', ') || '—'}] · ошибки диагноза: пропущено ${c.diagnosisErrors.missed}, ложных ${c.diagnosisErrors.false}
+        · stateHash ${c.stateHashMatch === null ? '—' : (c.stateHashMatch ? 'совпал' : 'РАСХОЖДЕНИЕ')}
+        <div class="row">
+          <button data-aid="${c.artifactId}" data-v="fake" class="verdict">подмалёвок</button>
+          <button data-aid="${c.artifactId}" data-v="authentic" class="verdict">подлинник</button>
+        </div>
+      </div>`).join('') : '<p>открытых дел нет</p>';
+    box.querySelectorAll('.verdict').forEach((b) => {
+      b.onclick = async () => {
+        const out = await api(`/api/case/${b.dataset.aid}/investigate`, 'POST', {
+          playerId: ui.player.id, verdict: b.dataset.v,
+        });
+        box.insertAdjacentHTML('beforeend', out.ok
+          ? `<p>${out.correct ? 'вердикт верен ✔' : 'вердикт ошибочен ✘'} · ${out.reward > 0 ? '+' : ''}${out.reward} пигментов · истина: ${out.truth}</p>`
+          : `<p>${out.reason}</p>`);
+        renderSocial();
+      };
+    });
+  }
 }
 
 async function boot() {

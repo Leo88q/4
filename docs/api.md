@@ -81,6 +81,41 @@ Base URL: `http://<host>:<port>` (по умолчанию `:8787`). Все от�
 | GET | `/api/attestation/:playerId` | Аттестат: работы, средний Индекс, ранг |
 | GET | `/api/book` | Книга Слоёв: верификация цепочки + последние записи |
 
+## Социальный слой (CONCEPT.md §5)
+
+### Мастерские
+| Метод | Путь | Что делает |
+|---|---|---|
+| POST | `/api/guild` | основать: `{name, motto, playerId}` (до 50 участников, одна гильдия на игрока) |
+| GET | `/api/guild/:id` | состав + статистика (престиж, статус «Мастерская»/«Музей») |
+| GET | `/api/guilds` | рейтинг по престижу |
+| POST | `/api/guild/:id/join` / `/leave` | `{playerId}` |
+
+### Вернисаж
+| Метод | Путь | Что делает |
+|---|---|---|
+| GET | `/api/vernissage` | экспонаты, голоса, итоги сезона |
+| POST | `/api/vernissage/submit` | `{playerId, artifactId}` — один экспонат от гильдии |
+| POST | `/api/vernissage/vote` | `{playerId, artifactId}` — один голос |
+| POST | `/api/vernissage/close` | закрыть сезон: призы 300/150/50 пигментов, престиж гильдиям |
+
+### Тихий торг (запечатанные ставки)
+| Метод | Путь | Что делает |
+|---|---|---|
+| POST | `/api/auction` | `{artifactId, sellerId, minBid, durationMin}` |
+| GET | `/api/auction/:id` | вид снаружи: количество ставок, без сумм |
+| POST | `/api/auction/:id/bid` | `{playerId, amount}` — скрыта до завершения |
+| POST | `/api/auction/:id/settle` | после `endsAt`: победитель, перевод Пигментов, комиссия 5%, смена владельца |
+
+### Пентименто
+| Метод | Путь | Что делает |
+|---|---|---|
+| GET | `/api/cases` | открытые дела + улики (флаги, ошибки диагноза, stateHash) |
+| POST | `/api/case/:artifactId/investigate` | `{playerId, verdict: 'fake'\|'authentic'}` — награда/штраф, запись в Книгу |
+
+Владелец не может расследовать своё дело. Правда спрятана на сервере
+(`evidence().suspicious`); вердикт сверяется с ней.
+
 ## Проверка третьей стороной
 
 1. `actionsMerkle` == `buildMerkle(actionHashes).root` (`@palimpsest/common`).

@@ -17,6 +17,16 @@ import { sha256Hex, hashObject, dailySeedString, mixChainEntropy, merkleProof, b
 import { simulate, validateActionLog, generate, SESSION_TTL_MS, SIM_VERSION } from '@palimpsest/sim';
 import { rateLimit, analyzePace } from './anticheat.js';
 import { config } from './config.js';
+import {
+  DomainError, createGuild, joinGuild, leaveGuild, guildLeaderboard, guildStats,
+} from './social/guilds.js';
+import {
+  exhibitionView, submitExhibit, vote, closeExhibition,
+} from './social/vernissage.js';
+import {
+  createAuction, placeBid, settleAuction, auctionView, auctionListView,
+} from './social/auction.js';
+import { listCases, investigate, evidence } from './social/pentimento.js';
 
 const json = (res, code, body) => {
   const data = JSON.stringify(body);
@@ -172,6 +182,46 @@ export function createApi(store, deps = {}) {
         });
       }
 
+      // ---------- social reads ----------
+      if (req.method === 'GET' && pathname === '/api/guilds') {
+        return json(res, 200, { ok: true, rows: await guildLeaderboard(store) });
+      }
+
+      if (req.method === 'GET' && pathname.startsWith('/api/guild/')) {
+        const id = pathname.slice('/api/guild/'.length);
+        const guild = await store.getGuild(id);
+        if (!guild) return bad(res, 404, 'unknown_guild');
+        const members = [];
+        for (const m of guild.members) {
+          const p = await store.getPlayer(m.playerId);
+          members.push({ playerId: m.playerId, name: p?.name ?? '?', role: m.role, joinedAt: m.joinedAt });
+        }
+        return json(res, 200, { ok: true, guild: { ...guild, members }, stats: await guildStats(store, guild) });
+      }
+
+      if (req.method === 'GET' && pathname === '/api/vernissage') {
+        return json(res, 200, { ok: true, vernissage: await exhibitionView(store) });
+      }
+
+      if (req.method === 'GET' && pathname === '/api/auctions') {
+        return json(res, 200, { ok: true, rows: await auctionListView(store) });
+      }
+
+      if (req.method === 'GET' && pathname.startsWith('/api/auction/')) {
+        const auction = await store.getAuction(pathname.slice('/api/auction/'.length));
+        if (!auction) return bad(res, 404, 'unknown_auction');
+        const artifact = await store.getArtifact(auction.artifactId);
+        return json(res, 200, {
+          ok: true,
+          auction: auctionView(auction),
+          artifact: artifact ? { id: artifact.id, title: artifact.meta.title, total: artifact.score.total } : null,
+        });
+      }
+
+      if (req.method === 'GET' && pathname === '/api/cases') {
+        return json(res, 200, { ok: true, rows: await listCases(store) });
+      }
+
       // ---------- writes ----------
       if (req.method === 'POST') {
         const rl = rateLimit(req.socket.remoteAddress ?? 'anon');
@@ -216,6 +266,50 @@ export function createApi(store, deps = {}) {
             spec: publicSpec(generate(seed)),
             startedAt: session.startedAt,
           });
+        }
+
+        // ---------- social writes ----------
+        if (pathname === '/api/guild') {
+          const guild = await createGuild(store, body);
+          return json(res, 200, { ok: true, guild });
+        }
+
+        const guildAct = pathname.match(/^\/api\/guild\/([^/]+)\/(join|leave)$/);
+        if (guildAct) {
+          const fn = guildAct[2] === 'join' ? joinGuild : leaveGuild;
+          const guild = await fn(store, guildAct[1], body.playerId);
+          return json(res, 200, { ok: true, guild });
+        }
+
+        if (pathname === '/api/vernissage/submit') {
+          const ex = await submitExhibit(store, body);
+          return json(res, 200, { ok: true, entries: ex.entries.length });
+        }
+        if (pathname === '/api/vernissage/vote') {
+          const ex = await vote(store, body);
+          return json(res, 200, { ok: true, totalVotes: Object.keys(ex.votes).length });
+        }
+        if (pathname === '/api/vernissage/close') {
+          const ex = await closeExhibition(store);
+          return json(res, 200, { ok: true, results: ex.results });
+        }
+
+        if (pathname === '/api/auction') {
+          const auction = await createAuction(store, body);
+          return json(res, 200, { ok: true, auction: auctionView(auction) });
+        }
+        const auctionAct = pathname.match(/^\/api\/auction\/([^/]+)\/(bid|settle)$/);
+        if (auctionAct) {
+          const auction = auctionAct[2] === 'bid'
+            ? await placeBid(store, auctionAct[1], body)
+            : await settleAuction(store, auctionAct[1]);
+          return json(res, 200, { ok: true, auction: auctionView(auction) });
+        }
+
+        const caseAct = pathname.match(/^\/api\/case\/([^/]+)\/investigate$/);
+        if (caseAct) {
+          const out = await investigate(store, caseAct[1], body);
+          return json(res, 200, { ok: true, ...out });
         }
 
         const actMatch = pathname.match(/^\/api\/session\/([^/]+)\/(actions|finish)$/);
@@ -284,6 +378,9 @@ export function createApi(store, deps = {}) {
 
           session.finished = true;
           session.artifactId = artifactId;
+          // экономика: Пигменты за качество реставрации (CONCEPT.md §6.1)
+          player.pigments = (player.pigments ?? 0) + result.score.total;
+          await store.putPlayer(player);
           await store.putArtifact(artifact);
           await store.putSession(session);
           await store.save();
@@ -302,6 +399,7 @@ export function createApi(store, deps = {}) {
 
       return bad(res, 404, 'unknown_route');
     } catch (err) {
+      if (err instanceof DomainError) return bad(res, 400, err.reason);
       if (err.message === 'bad_json') return bad(res, 400, 'bad_json');
       if (err.message === 'body_too_large') return bad(res, 413, 'body_too_large');
       return bad(res, 500, 'internal');
