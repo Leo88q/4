@@ -441,12 +441,26 @@ async function renderSocial() {
     return;
   }
   if (social.tab === 'season') {
-    const [season, tourns] = await Promise.all([
+    const [season, tourns, ch] = await Promise.all([
       api(`/api/season?playerId=${ui.player.id}`),
       api('/api/tournaments'),
+      api(`/api/chapter?playerId=${ui.player.id}`),
     ]);
     const m = season.manifest ?? { level: 0, xp: 0, premium: false };
+    const chapterHtml = ch.ok ? `
+      <div class="case">
+        <b>Глава ${ch.chapter.number}. «${ch.chapter.title}»</b> — ${ch.chapter.subtitle}<br/>
+        <i>${ch.chapter.motto}</i><br/>
+        <span class="muted">${ch.chapter.hook}</span><br/>
+        <span class="mono">заказ недели: «${ch.chapter.orderTitle}» · сид ${ch.chapter.weekSeed} · бонус +${ch.chapter.orderBonus} пигм.</span>
+        <div class="row"><button id="chPlay">Сыграть заказ главы</button></div>
+        <ol>${ch.quests.map((q) => `
+          <li>${q.title} — ${q.description}<br/>
+          <span class="mono">прогресс ${q.progress}/${q.target} · награда ${q.reward.pigments} пигм.${q.reward.title ? ` + титул «${q.reward.title}»` : ''}</span>
+          ${q.complete && !q.claimed ? `<button data-qid="${q.id}" class="chClaim">забрать</button>` : (q.claimed ? ' · получено ✔' : '')}</li>`).join('')}</ol>
+      </div>` : '';
     box.innerHTML = `
+      ${chapterHtml}
       <p><b>${season.seasonId}</b> · слой Аттестата: <b>${season.tier ?? '—'}</b><br/>
       Манифест: уровень <b>${m.level}</b> · опыт ${m.xp} ${m.premium ? '· глава открыта ✦' : '· глава закрыта'}
       · реставраций ${season.stats.verifiedSessions} · побед ${season.stats.tournamentWins}</p>
@@ -464,6 +478,18 @@ async function renderSocial() {
           <button data-tid=\"${t.id}\" class=\"tFinish\">финиш</button>
           <button data-tid=\"${t.id}\" class=\"tTable\">таблица</button></li>`).join('') || '<li>турниров нет</li>'}</ol>
       <div id=\"tTableBox\" class=\"mono\"></div>`;
+    if (ch.ok) {
+      $('chPlay').onclick = () => startSession('chapter');
+      box.querySelectorAll('.chClaim').forEach((b) => {
+        b.onclick = async () => {
+          const out = await api('/api/chapter/quest/claim', 'POST', { playerId: ui.player.id, questId: b.dataset.qid });
+          box.insertAdjacentHTML('afterbegin', out.ok
+            ? `<p>награда главы: +${out.reward.pigments} пигментов${out.reward.title ? ` · титул «${out.reward.title}»` : ''} ✔</p>`
+            : `<p>${out.reason}</p>`);
+          renderSocial();
+        };
+      });
+    }
     $('mUnlock').onclick = async () => {
       const out = await api('/api/season/manifest/unlock', 'POST', { playerId: ui.player.id });
       box.insertAdjacentHTML('beforeend', out.ok ? '<p>глава открыта ✦</p>' : `<p>${out.reason}</p>`);

@@ -19,6 +19,8 @@
  *   POST /api/tournament                {name, kind?, sponsor?}
  *   GET  /api/tournament/:id
  *   POST /api/tournament/:id/enter|start|finish
+ *   GET  /api/chapter?playerId=          глава сезона: легенда, квесты, заказ
+ *   POST /api/chapter/quest/claim        {playerId, questId}
  */
 import { sha256Hex, hashObject, dailySeedString, mixChainEntropy, merkleProof, buildMerkle } from '@palimpsest/common';
 import { simulate, validateActionLog, generate, SESSION_TTL_MS, SIM_VERSION, conservationOf, agingProjection } from '@palimpsest/sim';
@@ -43,6 +45,10 @@ import {
   TOURNAMENT_KINDS, createTournament, enterTournament, startTournament,
   assignRound, recordRound, finishTournament, standings as tournamentStandings,
 } from './tournament.js';
+import {
+  currentChapter, getChapter, chapterCard, chapterWeekSeed, questProgress,
+  CHAPTER_ORDER_BONUS,
+} from './chapter.js';
 import { planMint, buildMetadata } from '@palimpsest/chain-sdk/bubblegum';
 
 const json = (res, code, body) => {
@@ -276,6 +282,29 @@ export function createApi(store, deps = {}) {
         return json(res, 200, { ok: true, tournament: t, standings: tournamentStandings(t) });
       }
 
+      if (req.method === 'GET' && pathname === '/api/chapter') {
+        const chapter = currentChapter();
+        const playerId = new URL(req.url, 'http://x').searchParams.get('playerId');
+        const player = playerId ? await store.getPlayer(playerId) : null;
+        let quests = chapter.quests.map((q) => ({
+          id: q.id, title: q.title, description: q.description,
+          target: q.target, progress: 0, complete: false, reward: q.reward, claimed: false,
+        }));
+        if (player) {
+          const artifacts = await store.artifactsByPlayer(player.id);
+          const entries = store.book.entries.filter((e) => e.playerId === player.id);
+          const claimed = new Set(player.chapterClaims?.[chapter.id] ?? []);
+          quests = questProgress(chapter, { artifacts, bookEntries: entries })
+            .map((q) => ({ ...q, claimed: claimed.has(q.id) }));
+        }
+        return json(res, 200, {
+          ok: true,
+          chapter: chapterCard(chapter),
+          quests,
+          claimedTitles: player?.cosmetics ?? [],
+        });
+      }
+
       // ---------- writes ----------
       if (req.method === 'POST') {
         const rl = rateLimit(req.socket.remoteAddress ?? 'anon');
@@ -301,6 +330,11 @@ export function createApi(store, deps = {}) {
           let kind = body.kind === 'private' ? 'private' : 'daily';
           let seed = kind === 'daily' ? todaySeed() : `palimpsest-private:${player.id}:${Date.now()}`;
           let tournamentRef = null;
+          if (body.kind === 'chapter') {
+            // Заказ главы: единый холст недели для всех мастеров (равный старт)
+            kind = 'chapter';
+            seed = chapterWeekSeed(currentChapter());
+          }
           if (body.kind === 'tournament') {
             // Турнирная партия: равный старт — сид раунда одинаков для всех.
             const t = await store.getTournament(body.tournamentId);
@@ -364,6 +398,46 @@ export function createApi(store, deps = {}) {
           } catch (e) {
             return bad(res, 409, e.message);
           }
+        }
+
+        if (pathname === '/api/chapter/quest/claim') {
+          const player = await store.getPlayer(body.playerId);
+          if (!player) return bad(res, 400, 'unknown_player');
+          const chapter = currentChapter();
+          const quest = chapter.quests.find((q) => q.id === body.questId);
+          if (!quest) return bad(res, 404, 'unknown_quest');
+          player.chapterClaims = player.chapterClaims ?? {};
+          const claimed = player.chapterClaims[chapter.id] ?? (player.chapterClaims[chapter.id] = []);
+          if (claimed.includes(quest.id)) return bad(res, 409, 'already_claimed');
+          const artifacts = await store.artifactsByPlayer(player.id);
+          const entries = store.book.entries.filter((e) => e.playerId === player.id);
+          const state = questProgress(chapter, { artifacts, bookEntries: entries })
+            .find((q) => q.id === quest.id);
+          if (!state?.complete) return bad(res, 409, 'quest_not_complete');
+          claimed.push(quest.id);
+          player.pigments = (player.pigments ?? 0) + (quest.reward.pigments ?? 0);
+          if (quest.reward.title) {
+            player.cosmetics = player.cosmetics ?? [];
+            const title = `Титул «${quest.reward.title}»`;
+            if (!player.cosmetics.includes(title)) player.cosmetics.push(title);
+          }
+          await store.putPlayer(player);
+          await store.appendBook({
+            type: 'chapter',
+            playerId: player.id,
+            payload: {
+              event: 'quest_claimed',
+              chapterId: chapter.id,
+              questId: quest.id,
+              reward: quest.reward,
+            },
+          });
+          return json(res, 200, {
+            ok: true,
+            reward: quest.reward,
+            pigments: player.pigments,
+            cosmetics: player.cosmetics,
+          });
         }
 
         if (pathname === '/api/tournament') {
@@ -545,6 +619,8 @@ export function createApi(store, deps = {}) {
           session.artifactId = artifactId;
           // экономика: Пигменты за качество реставрации (CONCEPT.md §6.1)
           player.pigments = (player.pigments ?? 0) + result.score.total;
+          // заказ главы даёт сезонный бонус (§4.6: базовый контент главы)
+          if (session.kind === 'chapter') player.pigments += CHAPTER_ORDER_BONUS;
           // Киноварь — медленно: только за эталонные реставрации (Index ≥ 90)
           if (result.score.total >= 90) player.cinnabar = (player.cinnabar ?? 0) + 2;
           // Манифест сезона + турнирная партия (§4.6/§4.7)
