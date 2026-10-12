@@ -83,7 +83,23 @@ docs/                lore, архитектура, API
 * Arweave/IPFS — паспорта провенанса;
 * Anchor-программа — commitments; cNFT (Bubblegum) — минт артефактов.
 
-PostgreSQL-путь покрыт тестами на **PGlite** (настоящий Postgres в WASM, без сервера): полный API-флоу, SQL-агрегаты аттестата, пересборка Книги из строк и обнаружение порчи (`packages/server/test/pgstore.test.js`).
+PostgreSQL-путь покрыт тестами на **PGlite** (настоящий Postgres в WASM, без сервера): полный API-флоу, SQL-агрегаты аттестата, пересборка Книги из строк, обнаружение порчи, а также сезонные слои — комиссии торга (казна 50/30/20), турниры, proto-DAO (решения переживают перезагрузку), rewarded-гранты и заказ главы (`packages/server/test/pgstore.test.js`).
+
+### Боевое развёртывание
+
+Переменные окружения (`packages/server/src/config.js`):
+
+| Переменная | Назначение | По умолчанию |
+|---|---|---|
+| `DATABASE_URL` | PostgreSQL DSN; пусто → JSON-снапшот | пусто |
+| `HOST` / `PORT` | адрес сервера | `0.0.0.0` / `8787` |
+| `CHAIN_MODE` | `mock` (локальная Книга) / `solana` | `mock` |
+| `CHAIN_ENTROPY` / `CHAIN_ENTROPY_COMMIT` | commit-reveal энтропия сида дня (§7.4) | пусто |
+
+Схема (`schema.sql`) применяется автоматически при `PgStore.load()`. Книга
+append-only: в коде нет UPDATE/DELETE по таблице `book`. Единственное
+изменяемое глобальное состояние — `treasury` и `dao` (записи-константы),
+каждая мутация фиксируется `save()`.
 
 ## Модель безопасности
 

@@ -144,6 +144,72 @@ export const CHAPTERS = [
       },
     ],
   },
+  {
+    id: 'chapter-3-salt-water',
+    number: 3,
+    seasonId: 'palimpsest-season-v1:2027-Q2',
+    theme: 'Соль и влага',
+    title: 'Соль и влага',
+    subtitle: 'После воды',
+    motto: 'Вода забирает слой — Книга оставляет.',
+    hook: 'После мглы пришла вода: паводки, соляные разводы, плесень на грунте. '
+      + 'Разрывы и потёки стали письмом эпохи — их не замазывают, их читают. '
+      + 'Мастерская спасает то, что Дымка не добила, и записывает каждый '
+      + 'водяной слой в Книгу — пока соль не добралась до краски.',
+    lore: 'docs/lore.md §2 «Великое Потемнение» (последствия), §4 «Книга Слоёв»',
+    orderTitle: 'Из Схрона: полотно после паводка',
+    weekSeedPrefix: 'palimpsest-chapter-v1:chapter-3-salt-water',
+    quests: [
+      {
+        id: 'order',
+        metric: 'order',
+        title: 'Заказ главы',
+        description: 'Завершить реставрацию заказа главы (раз в неделю единый холст для всех)',
+        target: 1,
+        reward: { pigments: 60, title: 'Хранитель Влаги' },
+      },
+      {
+        id: 'conservator3',
+        metric: 'conservations',
+        title: 'Тихая консервация',
+        description: 'Завершить 3 реставрации с консервацией',
+        target: 3,
+        reward: { pigments: 100 },
+      },
+      {
+        id: 'restorer20',
+        metric: 'restorations',
+        title: 'Двадцать слоёв',
+        description: 'Завершить 20 реставраций',
+        target: 20,
+        reward: { pigments: 150 },
+      },
+      {
+        id: 'exhibitor3',
+        metric: 'exhibits',
+        title: 'Три Вернисажа',
+        description: 'Показать 3 работы на Вернисаже',
+        target: 3,
+        reward: { pigments: 120 },
+      },
+      {
+        id: 'exposer5',
+        metric: 'fakes_exposed',
+        title: 'Пять теней',
+        description: 'Раскрыть 5 подмалёвков в Пентименто',
+        target: 5,
+        reward: { pigments: 180 },
+      },
+      {
+        id: 'champion3',
+        metric: 'tournament_wins',
+        title: 'Трижды на стене',
+        description: 'Победить в трёх турнирах',
+        target: 3,
+        reward: { pigments: 300 },
+      },
+    ],
+  },
 ];
 
 /** Бонус Пигментов за завершение заказа главы. */

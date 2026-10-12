@@ -46,7 +46,15 @@ test('глава II «Чёрный лак»: реестр, метрики кве
   assert.equal(resolveChapter('chapter-2-black-lacquer').id, 'chapter-2-black-lacquer');
   assert.equal(resolveChapter(null).id, 'chapter-1-darkening', 'без выбора — сезон 2026-Q4');
   assert.equal(getChapterByTheme('Чёрный лак'), ch2);
-  assert.equal(getChapterByTheme('Соль и влага'), null);
+  assert.equal(getChapterByTheme('Огненная летопись'), null, 'тема без главы — null');
+
+  // глава III «Соль и влага» — третья тема голосования DAO тоже играбельна
+  const ch3 = getChapter('chapter-3-salt-water');
+  assert.ok(ch3, 'глава III в реестре');
+  assert.equal(ch3.theme, 'Соль и влага');
+  assert.equal(ch3.seasonId, 'palimpsest-season-v1:2027-Q2');
+  assert.equal(getChapterByTheme('Соль и влага'), ch3);
+  assert.equal(currentChapter(Date.UTC(2027, 4, 1)).id, 'chapter-3-salt-water');
 
   // метрики главы II: консервация, эталон 95, три разоблачения, гильдия, два титула
   const ctx = {

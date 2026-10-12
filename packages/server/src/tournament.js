@@ -80,6 +80,7 @@ export async function startTournament(store, t) {
   if (store.treasury) store.treasury.prize = 0;
   t.prizePool.total = t.prizePool.sponsor + treasuryPrize;
   t.status = 'running';
+  await store.save(); // treasury изменился — фиксируем (важно для PgStore)
   await store.putTournament(t);
   await store.appendBook({
     type: 'tournament',

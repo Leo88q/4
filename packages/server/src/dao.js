@@ -114,6 +114,7 @@ export async function closeProposal(store, proposalId) {
     } else {
       effect = { nextTheme: winner.option };
     }
+    await store.save(); // dao изменился — фиксируем (важно для PgStore)
   }
   if (p.kind === 'sponsor' && winner && store.treasury) {
     const share = winner.option === '100%' ? 1 : 0.5;
