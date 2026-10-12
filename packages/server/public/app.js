@@ -4,7 +4,7 @@
  * without trust — CONCEPT.md §9.3).
  */
 import {
-  generate, createState, applyAction, score, stateBytes, renderRgba, renderGalleryRgba,
+  generate, createState, applyAction, score, stateBytes, renderRgba, renderRealRgba,
   GRID, FINDINGS,
 } from '@palimpsest/sim';
 import { sha256Hex } from '@palimpsest/common';
@@ -21,6 +21,10 @@ const ui = {
   sim: null,
   tool: 'solvent',
   xray: false,
+  view: 'real',
+  realSeed: 0,
+  backdropData: null,
+  backdropFile: null,
   diagnosed: false,
   queue: [],
   lastActionT: 0,
@@ -45,26 +49,26 @@ function render() {
     return;
   }
   const { puzzle, sim } = ui;
-  const img = ctx.createImageData(GRID, GRID);
-  if (ui.xray) {
-    // «Око мастера»: интерактивный диагностический слой поверх канонического вида
-    for (let i = 0; i < GRID * GRID; i += 1) {
-      const v = sim.varnish[i] / 255;
-      let r = 30 + (1 - v) * 90;
-      let g = 30 + (1 - v) * 90;
-      let b = 40 + (1 - v) * 100;
-      if (sim.loss[i] > 20) { r = 200; g = 60; b = 50; }
-      if (sim.tear[i] > 20) { r = 80; g = 180; b = 220; }
-      if (sim.patch[i] > 20) { r = 120; g = 200; b = 120; }
-      if (sim.soft[i] > 20) { r = 220; g = 200; b = 60; }
-      img.data[i * 4] = r;
-      img.data[i * 4 + 1] = g;
-      img.data[i * 4 + 2] = b;
-      img.data[i * 4 + 3] = 255;
-    }
+  const realLayers = {
+    varnish: sim.varnish,
+    loss: sim.loss,
+    tear: sim.tear,
+    soft: sim.soft,
+    patch: sim.patch,
+    restored: sim.restored,
+    restoredMask: sim.restoredMask,
+    newVarnish: sim.newVarnish,
+    finished: sim.finished,
+  };
+  if (ui.view === 'real' && ui.backdropData) {
+    // живописный вид: реалистичная проекция слоёв на полотно эпохи
+    // (декоративная; канонический кадр — источник истины для проверки)
+    const out = renderRealRgba(ui.backdropData.data, 512, 512, realLayers, ui.realSeed);
+    ctx.putImageData(new ImageData(new Uint8ClampedArray(out.buffer), 512, 512), 0, 0);
   } else {
     // канонический композитор (@palimpsest/sim/render.js) — байт-в-байт как в
     // Unity-виде (client/unity/PalimpsestSim/Renderer.cs) и проверочных скриптах
+    const img = ctx.createImageData(GRID, GRID);
     img.data.set(renderRgba({
       paint: puzzle.paint,
       varnish: sim.varnish,
@@ -76,12 +80,62 @@ function render() {
       newVarnish: sim.newVarnish,
       finished: sim.finished,
     }));
+    const off = document.createElement('canvas');
+    off.width = GRID; off.height = GRID;
+    off.getContext('2d').putImageData(img, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(off, 0, 0, canvas.width, canvas.height);
   }
-  const off = document.createElement('canvas');
-  off.width = GRID; off.height = GRID;
-  off.getContext('2d').putImageData(img, 0, 0);
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(off, 0, 0, canvas.width, canvas.height);
+
+  if (ui.xray) {
+    // «Око мастера»: диагностическая подсветка поверх живого вида
+    const x = ctx.createImageData(GRID, GRID);
+    for (let i = 0; i < GRID * GRID; i += 1) {
+      let r = 0; let g = 0; let b = 0; let a = 0;
+      if (sim.soft[i] > 20) { r = 220; g = 200; b = 60; a = 120; }
+      if (sim.patch[i] > 20) { r = 120; g = 200; b = 120; a = 150; }
+      if (sim.loss[i] > 20) { r = 200; g = 60; b = 50; a = 160; }
+      if (sim.tear[i] > 20) { r = 80; g = 180; b = 220; a = 170; }
+      x.data[i * 4] = r;
+      x.data[i * 4 + 1] = g;
+      x.data[i * 4 + 2] = b;
+      x.data[i * 4 + 3] = a;
+    }
+    const xoff = document.createElement('canvas');
+    xoff.width = GRID; xoff.height = GRID;
+    xoff.getContext('2d').putImageData(x, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(xoff, 0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = false;
+  }
+}
+
+function hashSeed(str) {
+  let h = 2166136261 >>> 0;
+  const s = String(str);
+  for (let i = 0; i < s.length; i += 1) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h >>> 0;
+}
+
+function ensureBackdrop(puzzle) {
+  const file = GALLERY_FILES[puzzle.epoch] ?? 'modern.jpg';
+  if (ui.backdropFile === file && ui.backdropData) { render(); return; }
+  ui.backdropFile = file;
+  ui.backdropData = null;
+  const img = new Image();
+  img.onload = () => {
+    const off = document.createElement('canvas');
+    off.width = 512;
+    off.height = 512;
+    const octx = off.getContext('2d');
+    octx.drawImage(img, 0, 0, 512, 512);
+    ui.backdropData = octx.getImageData(0, 0, 512, 512);
+    render();
+  };
+  img.src = `/assets/gallery/${file}`;
 }
 
 // ---------- actions ----------
@@ -205,6 +259,8 @@ async function startSession(kind, extra = {}) {
   ui.session = { id: out.sessionId, seed: out.seed, startedAt: out.startedAt, finishedLocally: false };
   ui.puzzle = generate(out.seed);
   ui.sim = createState(ui.puzzle);
+  ui.realSeed = hashSeed(out.seed);
+  ensureBackdrop(ui.puzzle);
   ui.diagnosed = false;
   ui.queue = [];
   $('sessionInfo').textContent = `сессия ${out.sessionId} · сид ${out.seed}`;
@@ -213,6 +269,12 @@ async function startSession(kind, extra = {}) {
   $('resultInfo').textContent = 'зафиксируйте диагноз и реставрируйте…';
   render();
 }
+$('viewToggle').addEventListener('click', () => {
+  ui.view = ui.view === 'real' ? 'canon' : 'real';
+  $('viewToggle').textContent = ui.view === 'real' ? 'вид: живой' : 'вид: канон';
+  render();
+});
+
 $('btnStart').addEventListener('click', () => startSession('daily'));
 $('btnPrivate').addEventListener('click', () => startSession('private'));
 
@@ -307,16 +369,17 @@ async function paintGallery(puzzle, sim) {
   const octx = off.getContext('2d');
   octx.drawImage(img, 0, 0, 512, 512);
   const base = octx.getImageData(0, 0, 512, 512);
-  const out = renderGalleryRgba(base.data, 512, 512, {
+  const out = renderRealRgba(base.data, 512, 512, {
     varnish: sim.varnish,
     loss: sim.loss,
     tear: sim.tear,
+    soft: sim.soft,
     patch: sim.patch,
     restored: sim.restored,
     restoredMask: sim.restoredMask,
     newVarnish: sim.newVarnish,
     finished: sim.finished,
-  });
+  }, ui.realSeed);
   const gctx = canvas.getContext('2d');
   gctx.putImageData(new ImageData(new Uint8ClampedArray(out.buffer), 512, 512), 0, 0);
 }

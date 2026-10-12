@@ -4,7 +4,7 @@ export {
 } from './const.js';
 export { generate, puzzleSpec, EPOCHS } from './generate.js';
 export {
-  renderRgba, renderInitialRgba, renderStateRgba, renderGalleryRgba,
+  renderRgba, renderInitialRgba, renderStateRgba, renderGalleryRgba, renderRealRgba,
 } from './render.js';
 export { createState, stateBytes } from './state.js';
 export { applyAction, replay, validateActionLog } from './actions.js';

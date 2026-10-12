@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { sha256Hex } from '@palimpsest/common';
 import {
   generate, createState, applyAction, renderRgba, renderInitialRgba, renderStateRgba,
-  renderGalleryRgba, GRID,
+  renderGalleryRgba, renderRealRgba, GRID,
 } from '@palimpsest/sim';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
@@ -121,4 +121,57 @@ test('галерейная проекция: слои поверх живопи�
   // детерминизм проекции
   const again = renderGalleryRgba(base, W, H, layers);
   assert.equal(sha256Hex(again), sha256Hex(out));
+});
+
+test('реалистичная проекция: органика вместо пикселей, чистая база без слоёв', () => {
+  const W = 128;
+  const H = 128;
+  const base = new Uint8Array(W * H * 4);
+  for (let i = 0; i < W * H; i += 1) {
+    base[i * 4] = 120;
+    base[i * 4 + 1] = 90;
+    base[i * 4 + 2] = 60;
+    base[i * 4 + 3] = 255;
+  }
+  const empty = {
+    varnish: new Uint8Array(GRID * GRID),
+    loss: new Uint8Array(GRID * GRID),
+    tear: new Uint8Array(GRID * GRID),
+  };
+
+  // без слоёв кадр байт-в-байт равен подложке
+  const clean = renderRealRgba(base, W, H, empty, 42);
+  assert.equal(sha256Hex(clean), sha256Hex(base), 'без повреждений — подложка без изменений');
+
+  // детерминизм: один сид — один кадр
+  const again = renderRealRgba(base, W, H, empty, 42);
+  assert.equal(sha256Hex(again), sha256Hex(clean));
+
+  // утрата без восстановления — светлый грунт с фактурой холста
+  const loss = new Uint8Array(GRID * GRID);
+  for (let y = 12; y < 20; y += 1) {
+    for (let x = 12; x < 20; x += 1) loss[y * GRID + x] = 255;
+  }
+  const withLoss = renderRealRgba(base, W, H, { ...empty, loss }, 42);
+  const px = (img, x, y) => img.subarray((y * W + x) * 4, (y * W + x) * 4 + 3);
+  const mid = px(withLoss, 64, 64);
+  assert.ok(mid[0] > 150 && mid[1] > 140 && mid[2] > 120, `грунт светлее подложки: ${mid}`);
+  const before = px(withLoss, 10, 10);
+  assert.deepEqual([...before], [120, 90, 60], 'вне утрат — подложка');
+
+  // восстановленная утрата несёт цвет кисти
+  const restored = new Uint8Array(GRID * GRID * 3);
+  const restoredMask = new Uint8Array(GRID * GRID);
+  for (let y = 12; y < 20; y += 1) {
+    for (let x = 12; x < 20; x += 1) {
+      const i = y * GRID + x;
+      restored[i * 3] = 200;
+      restored[i * 3 + 1] = 40;
+      restored[i * 3 + 2] = 40;
+      restoredMask[i] = 255;
+    }
+  }
+  const painted = renderRealRgba(base, W, H, { ...empty, loss, restored, restoredMask }, 42);
+  const mid2 = px(painted, 64, 64);
+  assert.ok(mid2[0] > 150 && mid2[1] < 110 && mid2[2] < 110, `цвет кисти виден: ${mid2}`);
 });
