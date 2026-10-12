@@ -14,7 +14,7 @@
  *   GET  /api/book
  */
 import { sha256Hex, hashObject, dailySeedString, mixChainEntropy, merkleProof, buildMerkle } from '@palimpsest/common';
-import { simulate, validateActionLog, generate, SESSION_TTL_MS, SIM_VERSION } from '@palimpsest/sim';
+import { simulate, validateActionLog, generate, SESSION_TTL_MS, SIM_VERSION, conservationOf, agingProjection } from '@palimpsest/sim';
 import { rateLimit, analyzePace } from './anticheat.js';
 import { config } from './config.js';
 import {
@@ -172,6 +172,7 @@ export function createApi(store, deps = {}) {
         return json(res, 200, {
           ok: true,
           artifact,
+          aging: agingProjection(artifact),
           provenance: {
             merkleRoot: artifact.actionsMerkle,
             actions: leaves.length,
@@ -353,6 +354,7 @@ export function createApi(store, deps = {}) {
             stateHash: result.stateHash,
             actionsMerkle,
             actionHashes,
+            conservation: conservationOf(merged),
             provenanceCid: `ar://mock-${actionsMerkle.slice(0, 32)}`,
             clientStateHash: body.clientStateHash ?? null,
             stateHashMatch: body.clientStateHash ? body.clientStateHash === result.stateHash : null,

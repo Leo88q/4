@@ -56,6 +56,33 @@ node scripts/gen-vectors.js   # из корня репозитория
 
 Если векторы изменились — обновить и JS, и C#, и поднять `SIM_VERSION` в `packages/sim/src/const.js`.
 
+## Проекция телеметрии (Mechanic_* -> лента действий)
+
+Реальные механики форка проецируются на **канонический словарь действий** симуляции
+(`solvent/wipe/patch/brush/varnish/diagnose/finish`). Патчи (все с пометкой
+«Modified by The Palimpsest Authors», собираются `scripts/integrate-upstream.sh`):
+
+| Механика upstream | Событие | Действие |
+|---|---|---|
+| `Mechanic_VarnishRemoval/Brush` | мазок растворителем | `solvent` (троттлинг 60 мс) |
+| `Mechanic_VarnishRemoval/Brush` | нанесение лака | `varnish` |
+| `Mechanic_Color/PaintDamage.IsFixed` | утрата закрашена | `brush` (цвет из `PalimpsestTelemetry.CurrentColor`) |
+| `Mechanic_Patching/PlacePatch` | заплатка поставлена | `patch` (материал «лён») |
+| `Mechanic_Locking/CreateStitch` | шов наложен | `patch` (материал «шёлк») |
+| `Mechanic_DeclareFinish/declareFinish` | Акт реставрации | `NotifyFinish()` -> `finish` |
+
+Координаты нормализуются через `Camera.main.WorldToViewportPoint` -> [0,1].
+`PalimpsestTelemetry` сам держит минимальный интервал 60 мс (то же правило,
+что проверяет сервер).
+
+**Честность проекции.** Пока Unity-уровни рисуют собственные картины, а сервер
+переигрывает канонический пазл из сида сессии — телеметрия описывает *операции
+мастера*, а не попиксельный результат. Это интеграционный срез: словарь, конвейер
+и точки врезки настоящие; следующий шаг (roadmap «Прототип») — рендерить в Unity
+именно пазл из сида (`PalimpsestSim.Generate`), чтобы проекция стала точной.
+Локальный `ScoringManager` продолжает работать как и раньше; серверный Индекс —
+источник истины для наград.
+
 ## Поток данных (напоминание из CONCEPT.md §9.3)
 
 ```

@@ -87,13 +87,15 @@ public sealed class PalimpsestGameHook : MonoBehaviour
         int tasksTotal = ScoringManager.Instance != null ? ScoringManager.Instance.totalTask : 0;
         Debug.Log($"[Palimpsest] upstream score={upstreamScore} tasks={tasksDone}/{tasksTotal}");
 
-        // Aggregate act for the integration slice. A full-risk restoration is
-        // represented by per-mechanic Push() calls as they are wired in.
         long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        bridge.Push(new RestorationAction("diagnose", now)
+        if (_sessionLog.Count == 0)
         {
-            Findings = new[] { "varnish_darkening" }, // диагноз придёт из UI диагностики (roadmap)
-        });
+            // fallback for runs without telemetry hooks (integration slice)
+            bridge.Push(new RestorationAction("diagnose", now)
+            {
+                Findings = new[] { "varnish_darkening" },
+            });
+        }
         bridge.Push(new RestorationAction("finish", now + 120));
 
         yield return bridge.Finish(result =>
