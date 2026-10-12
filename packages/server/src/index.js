@@ -34,6 +34,11 @@ function serveStatic(req, res) {
     filePath = path.join(publicDir, 'index.html');
   } else if (url.pathname === '/app.js' || url.pathname === '/style.css') {
     filePath = path.join(publicDir, url.pathname.slice(1));
+  } else if (url.pathname.startsWith('/assets/')) {
+    // сгенерированные ассеты: предметы, обложки глав, рамы
+    const rel = path.normalize(url.pathname.slice('/assets/'.length)).replace(/^(\.\.[/\\])+/, '');
+    filePath = path.join(publicDir, 'assets', rel);
+    if (!filePath.startsWith(path.join(publicDir, 'assets'))) filePath = null;
   } else {
     for (const [prefix, dir] of Object.entries(vendorMap)) {
       if (url.pathname.startsWith(prefix)) {

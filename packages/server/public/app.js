@@ -451,6 +451,7 @@ async function renderSocial() {
     const m = season.manifest ?? { level: 0, xp: 0, premium: false };
     const chapterHtml = ch.ok ? `
       <div class="case">
+        <img class="chapter-cover" src="/assets/chapters/${ch.chapter.id}.jpg" alt="«${ch.chapter.title}»" />
         <b>Глава ${ch.chapter.number}. «${ch.chapter.title}»</b> — ${ch.chapter.subtitle}<br/>
         <i>${ch.chapter.motto}</i><br/>
         <span class="muted">${ch.chapter.hook}</span><br/>
@@ -461,8 +462,21 @@ async function renderSocial() {
           <span class="mono">прогресс ${q.progress}/${q.target} · награда ${q.reward.pigments} пигм.${q.reward.title ? ` + титул «${q.reward.title}»` : ''}</span>
           ${q.complete && !q.claimed ? `<button data-qid="${q.id}" class="chClaim">забрать</button>` : (q.claimed ? ' · получено ✔' : '')}</li>`).join('')}</ol>
       </div>` : '';
+    const itemsShelf = `
+      <div class="items-shelf">
+        ${[
+          ['solvent', 'Растворитель'],
+          ['wipe', 'Салфетка'],
+          ['patch', 'Заплатка'],
+          ['brush', 'Кисть'],
+          ['varnish', 'Лак'],
+          ['cinnabar', 'Пигменты'],
+        ].map(([file, name]) => `
+          <div class="item-card"><img src="/assets/items/${file}.png" alt="${name}" />${name}</div>`).join('')}
+      </div>`;
     box.innerHTML = `
       ${chapterHtml}
+      ${itemsShelf}
       ${rew.ok ? `<p class="mono">спонсорский просмотр: осталось ${rew.left}/${rew.dailyCap} (+${rew.grant} пигм.)
         <button id="rWatch">смотреть</button></p>` : ''}
       ${dao.ok ? `

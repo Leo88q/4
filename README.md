@@ -40,6 +40,7 @@ Solana — `CHAIN_MODE=solana` + переменные из `chain/README.md`.
 | `packages/common` | sha256 (портативный), sfc32 RNG, Merkle — детерминизм JS ↔ C# |
 | `packages/sim` | `Restory.Sim` v1: генерация пазла, необратимые действия, Индекс Палимпсеста |
 | `packages/server` | API, сессии, античит, Книга Слоёв, хранилища JSON/PostgreSQL, веб-демо |
+| `packages/server/public/assets/` | сгенерированные ассеты игры: предметы Мастерской (инструменты, материалы, лаки, пигменты), обложки глав, золотая рама — авторские генеративные изображения проекта, не ассеты upstream |
 | `chain/` | Anchor-программа `palimpsest_book` + SDK инструкций Solana |
 | `client/unity/` | C#-порт симуляции, `PalimpsestBridge`, паритет-векторы, интеграция |
 | `scripts/` | `fetch-upstream.sh`, `integrate-upstream.sh` (сборка форка Restory), `gen-vectors.js` |

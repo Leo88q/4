@@ -41,10 +41,10 @@
     <section class="card canvas-card">
       <div class="toolbar">
         <div class="tools">
-          <button class="tool active" data-tool="solvent">Растворитель</button>
-          <button class="tool" data-tool="wipe">Салфетка</button>
-          <button class="tool" data-tool="patch">Заплатка</button>
-          <button class="tool" data-tool="brush">Кисть</button>
+          <button class="tool active" data-tool="solvent"><img src="/assets/items/solvent.png" alt="" />Растворитель</button>
+          <button class="tool" data-tool="wipe"><img src="/assets/items/wipe.png" alt="" />Салфетка</button>
+          <button class="tool" data-tool="patch"><img src="/assets/items/patch.png" alt="" />Заплатка</button>
+          <button class="tool" data-tool="brush"><img src="/assets/items/brush.png" alt="" />Кисть</button>
           <button class="tool" data-tool="xray">Око мастера</button>
         </div>
         <label id="strengthWrap">сила <input id="strength" type="range" min="10" max="100" value="55" /></label>
@@ -57,7 +57,7 @@
           </select>
         </label>
       </div>
-      <canvas id="canvas" width="512" height="512"></canvas>
+      <div class="frame-gilded"><canvas id="canvas" width="512" height="512"></canvas></div>
       <div class="row">
         <button id="btnFinish" disabled>Акт реставрации</button>
         <button id="btnDiagnose" disabled>Диагноз</button>
