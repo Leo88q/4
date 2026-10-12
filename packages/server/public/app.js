@@ -4,7 +4,7 @@
  * without trust — CONCEPT.md §9.3).
  */
 import {
-  generate, createState, applyAction, score, stateBytes, GRID, FINDINGS,
+  generate, createState, applyAction, score, stateBytes, renderRgba, GRID, FINDINGS,
 } from '@palimpsest/sim';
 import { sha256Hex } from '@palimpsest/common';
 
@@ -45,54 +45,36 @@ function render() {
   }
   const { puzzle, sim } = ui;
   const img = ctx.createImageData(GRID, GRID);
-  for (let i = 0; i < GRID * GRID; i += 1) {
-    let r = puzzle.paint[i * 3];
-    let g = puzzle.paint[i * 3 + 1];
-    let b = puzzle.paint[i * 3 + 2];
-
-    if (ui.xray) {
-      // «Око мастера»: diagnostic view
+  if (ui.xray) {
+    // «Око мастера»: интерактивный диагностический слой поверх канонического вида
+    for (let i = 0; i < GRID * GRID; i += 1) {
       const v = sim.varnish[i] / 255;
-      r = 30 + (1 - v) * 90;
-      g = 30 + (1 - v) * 90;
-      b = 40 + (1 - v) * 100;
+      let r = 30 + (1 - v) * 90;
+      let g = 30 + (1 - v) * 90;
+      let b = 40 + (1 - v) * 100;
       if (sim.loss[i] > 20) { r = 200; g = 60; b = 50; }
       if (sim.tear[i] > 20) { r = 80; g = 180; b = 220; }
       if (sim.patch[i] > 20) { r = 120; g = 200; b = 120; }
       if (sim.soft[i] > 20) { r = 220; g = 200; b = 60; }
-    } else {
-      // physical view: paint under old varnish, losses as bare ground, tears dark
-      const v = sim.varnish[i] / 255;
-      r = Math.floor(r * (1 - v * 0.82) + 52 * v);
-      g = Math.floor(g * (1 - v * 0.82) + 38 * v);
-      b = Math.floor(b * (1 - v * 0.82) + 26 * v);
-
-      const lossNow = sim.loss[i] / 255;
-      if (lossNow > 0) {
-        const rr = sim.restoredMask[i] > 0 ? sim.restored[i * 3] : 196;
-        const gg = sim.restoredMask[i] > 0 ? sim.restored[i * 3 + 1] : 188;
-        const bb = sim.restoredMask[i] > 0 ? sim.restored[i * 3 + 2] : 170;
-        r = Math.floor(r * (1 - lossNow) + rr * lossNow);
-        g = Math.floor(g * (1 - lossNow) + gg * lossNow);
-        b = Math.floor(b * (1 - lossNow) + bb * lossNow);
-      }
-      if (sim.tear[i] > 0 && sim.patch[i] === 0) {
-        r = 36; g = 28; b = 24;
-      } else if (sim.patch[i] > 0) {
-        r = Math.floor(r * 0.6 + 150 * 0.4);
-        g = Math.floor(g * 0.6 + 132 * 0.4);
-        b = Math.floor(b * 0.6 + 108 * 0.4);
-      }
-      if (sim.newVarnish > 0 && ui.sim.finished) {
-        const nv = sim.newVarnish / 255;
-        r = Math.floor(r * (1 - nv * 0.2) + 90 * nv * 0.2);
-        g = Math.floor(g * (1 - nv * 0.2) + 70 * nv * 0.2);
-      }
+      img.data[i * 4] = r;
+      img.data[i * 4 + 1] = g;
+      img.data[i * 4 + 2] = b;
+      img.data[i * 4 + 3] = 255;
     }
-    img.data[i * 4] = r;
-    img.data[i * 4 + 1] = g;
-    img.data[i * 4 + 2] = b;
-    img.data[i * 4 + 3] = 255;
+  } else {
+    // канонический композитор (@palimpsest/sim/render.js) — байт-в-байт как в
+    // Unity-виде (client/unity/PalimpsestSim/Renderer.cs) и проверочных скриптах
+    img.data.set(renderRgba({
+      paint: puzzle.paint,
+      varnish: sim.varnish,
+      loss: sim.loss,
+      tear: sim.tear,
+      patch: sim.patch,
+      restored: sim.restored,
+      restoredMask: sim.restoredMask,
+      newVarnish: sim.newVarnish,
+      finished: sim.finished,
+    }));
   }
   const off = document.createElement('canvas');
   off.width = GRID; off.height = GRID;

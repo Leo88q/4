@@ -10,7 +10,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Rng, sha256Hex } from '@palimpsest/common';
-import { generate, simulate, createState, applyAction, stateBytes, score } from '@palimpsest/sim';
+import {
+  generate, simulate, createState, applyAction, stateBytes, score,
+  renderInitialRgba, renderStateRgba,
+} from '@palimpsest/sim';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SEED = 'palimpsest-daily-v1:2026-10-11';
@@ -44,6 +47,10 @@ const state = createState(puzzle);
 for (const a of actions) applyAction(state, puzzle, a);
 const sc = score(puzzle, state);
 
+// Канонический рендер (v2): первый кадр и кадр после лога действий.
+const render0 = renderInitialRgba(puzzle);
+const renderFinal = renderStateRgba(puzzle, state);
+
 const vectors = {
   seed: SEED,
   rng8,
@@ -60,6 +67,12 @@ const vectors = {
     paintSha256: sha256Hex(puzzle.paint),
   },
   actions,
+  render: {
+    roll0: roll(render0),
+    sha0: sha256Hex(render0),
+    rollFinal: roll(renderFinal),
+    shaFinal: sha256Hex(renderFinal),
+  },
   expected: {
     total: result.score.total,
     components: result.score.components,
@@ -100,6 +113,12 @@ namespace Palimpsest.Sim
         public const uint Tear0Roll = ${vectors.puzzle.tear0Roll}u;
         public const string PaintSha256 = "${vectors.puzzle.paintSha256}";
         public static readonly string[] Findings = new string[] { ${vectors.puzzle.findings.map((f) => `"${f}"`).join(', ')} };
+
+        // Канонический рендер (v2): Renderer.cs обязан повторить байт-в-байт.
+        public const uint Render0Roll = ${vectors.render.roll0}u;
+        public const uint RenderFinalRoll = ${vectors.render.rollFinal}u;
+        public const string Render0Sha256 = "${vectors.render.sha0}";
+        public const string RenderFinalSha256 = "${vectors.render.shaFinal}";
 
         public const int ExpectedTotal = ${vectors.expected.total};
         public const int ExpectedAccuracy = ${vectors.expected.components.accuracy};

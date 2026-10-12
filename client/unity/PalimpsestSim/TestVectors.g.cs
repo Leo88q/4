@@ -20,6 +20,12 @@ namespace Palimpsest.Sim
         public const string PaintSha256 = "5f6792da7239ccf55013d15b16bb989faa98056a3f2e3de5a59edc97d90444d3";
         public static readonly string[] Findings = new string[] { "varnish_darkening", "loss", "tear", "water_stain", "old_restoration" };
 
+        // Канонический рендер (v2): Renderer.cs обязан повторить байт-в-байт.
+        public const uint Render0Roll = 4079518443u;
+        public const uint RenderFinalRoll = 3219331775u;
+        public const string Render0Sha256 = "ce48dc9df30092fb2b2532cf10cf4c29080d78967852db283e01edc4bdf5a077";
+        public const string RenderFinalSha256 = "80f03c5a68cf24150e5da68016bc4c988363dea589b6b58957eea7e4bc5c9017";
+
         public const int ExpectedTotal = 48;
         public const int ExpectedAccuracy = 0;
         public const int ExpectedIntegrity = 65;

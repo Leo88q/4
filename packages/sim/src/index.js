@@ -3,6 +3,7 @@ export {
   ACTION_SCHEMA, FINDINGS, MATERIALS, VARNISH_KINDS,
 } from './const.js';
 export { generate, puzzleSpec, EPOCHS } from './generate.js';
+export { renderRgba, renderInitialRgba, renderStateRgba } from './render.js';
 export { createState, stateBytes } from './state.js';
 export { applyAction, replay, validateActionLog } from './actions.js';
 export { score } from './score.js';

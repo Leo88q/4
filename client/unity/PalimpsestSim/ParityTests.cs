@@ -48,6 +48,17 @@ namespace Palimpsest.Sim
                 : -1);
         }
 
+        [Test]
+        public void RenderMatchesReference()
+        {
+            // Канонический композитор (v2): байты кадров обязаны совпасть с JS.
+            var p = PuzzleGenerator.Generate(TestVectors.Seed);
+            Assert.AreEqual(TestVectors.Render0Roll, Roll(PuzzleRenderer.RenderInitialRgba(p)), "первый кадр");
+
+            var state = ActionRules.Replay(p, BuildVectorLog());
+            Assert.AreEqual(TestVectors.RenderFinalRoll, Roll(PuzzleRenderer.RenderStateRgba(p, state)), "финальный кадр");
+        }
+
         /// <summary>The exact log from scripts/gen-vectors.js.</summary>
         private static List<RestorationAction> BuildVectorLog()
         {

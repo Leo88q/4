@@ -66,6 +66,12 @@
       "t": 1800000000800
     }
   ],
+  "render": {
+    "roll0": 4079518443,
+    "sha0": "ce48dc9df30092fb2b2532cf10cf4c29080d78967852db283e01edc4bdf5a077",
+    "rollFinal": 3219331775,
+    "shaFinal": "80f03c5a68cf24150e5da68016bc4c988363dea589b6b58957eea7e4bc5c9017"
+  },
   "expected": {
     "total": 48,
     "components": {
