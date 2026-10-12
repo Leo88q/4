@@ -276,6 +276,72 @@ export const CHAPTERS = [
       },
     ],
   },
+  {
+    id: 'chapter-5-gray-haze',
+    number: 5,
+    seasonId: 'palimpsest-season-v1:2027-Q4',
+    theme: 'Серая Дымка',
+    title: 'Серая Дымка',
+    subtitle: 'Расследование',
+    motto: 'У Дымки есть причина — и у причины есть слой.',
+    hook: 'Серую Дымку приняли за стихию — но слои помнят поставщиков, рецепты '
+      + 'и даты. Мастерская ведёт расследование Потемнения: читает пентименто '
+      + 'и провенанс, сводит Вернисажи и показания Смотрителей. Дымка была '
+      + 'не случайностью — это человеческая история, и её тоже нужно записать в Книгу.',
+    lore: 'docs/lore.md §8 «Серая Дымка» (расследование причин Потемнения)',
+    orderTitle: 'Из Схрона: дело о Серой Дымке',
+    weekSeedPrefix: 'palimpsest-chapter-v1:chapter-5-gray-haze',
+    quests: [
+      {
+        id: 'order',
+        metric: 'order',
+        title: 'Заказ главы',
+        description: 'Завершить реставрацию заказа главы (раз в неделю единый холст для всех)',
+        target: 1,
+        reward: { pigments: 60, title: 'Следопыт Дымки' },
+      },
+      {
+        id: 'exhibitor5',
+        metric: 'exhibits',
+        title: 'Открытые показания',
+        description: 'Показать 5 работ на Вернисаже',
+        target: 5,
+        reward: { pigments: 140 },
+      },
+      {
+        id: 'restorer30',
+        metric: 'restorations',
+        title: 'Тридцать слоёв',
+        description: 'Завершить 30 реставраций',
+        target: 30,
+        reward: { pigments: 170 },
+      },
+      {
+        id: 'index95x2',
+        metric: 'index95',
+        title: 'Два свидетельства',
+        description: 'Две реставрации с Индексом Палимпсеста ≥ 95',
+        target: 2,
+        reward: { pigments: 200 },
+      },
+      {
+        id: 'exposer10',
+        metric: 'fakes_exposed',
+        title: 'Десять почерков',
+        description: 'Раскрыть 10 подмалёвков в Пентименто',
+        target: 10,
+        reward: { pigments: 220 },
+      },
+      {
+        id: 'champion5',
+        metric: 'tournament_wins',
+        title: 'Пять имён на стене',
+        description: 'Победить в пяти турнирах',
+        target: 5,
+        reward: { pigments: 350 },
+      },
+    ],
+  },
 ];
 
 /** Бонус Пигментов за завершение заказа главы. */

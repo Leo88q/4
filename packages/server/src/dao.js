@@ -11,7 +11,10 @@ import { DomainError, guildOfPlayer, guildStats } from './social/guilds.js';
 import { getChapterByTheme } from './chapter.js';
 
 export const PROPOSAL_KINDS = {
-  theme: { label: 'Тема следующей главы', options: ['Чёрный лак', 'Соль и влага', 'Огненная летопись'] },
+  theme: {
+    label: 'Тема следующей главы',
+    options: ['Чёрный лак', 'Соль и влага', 'Огненная летопись', 'Серая Дымка'],
+  },
   sponsor: { label: 'Спонсорство турниров из казны развития', options: ['50%', '100%'] },
 };
 

@@ -196,7 +196,7 @@ $('btnEnter').addEventListener('click', async () => {
   $('playerInfo').textContent = `${out.player.name} · ${out.player.address.slice(0, 12)}…`;
   $('btnStart').disabled = false;
   $('btnPrivate').disabled = false;
-  refreshOwnedFrame();
+  refreshOwnedCosmetics();
 });
 
 async function startSession(kind, extra = {}) {
@@ -280,7 +280,7 @@ $('btnFinish').addEventListener('click', async () => {
     $('mintInfo').innerHTML = `cNFT: ${out.mint.assetId} · дерево ${out.mint.tree.slice(0, 16)}… · лист #${out.mint.leafIndex} · Книга #${out.bookSeq}`;
   };
   paintGallery(ui.puzzle, ui.sim);
-  refreshOwnedFrame();
+  refreshOwnedCosmetics();
   refreshMeta();
 });
 
@@ -321,26 +321,61 @@ async function paintGallery(puzzle, sim) {
   gctx.putImageData(new ImageData(new Uint8ClampedArray(out.buffer), 512, 512), 0, 0);
 }
 
-// ---------- рама по факту владения (косметика, не влияет на механику) ----------
+// ---------- косметика по факту владения (рама + тема; механику не трогает) ----------
 const OWNED_FRAMES = [
   { name: 'Рама «Сусальное золото»', url: '/assets/frames/gold-leaf.png', slice: 115 },
   { name: 'Рама «Кракелюр»', url: '/assets/frames/crackle.png', slice: 115 },
 ];
 
-async function refreshOwnedFrame() {
-  const wrap = document.getElementById('frameWrap');
-  if (!wrap || !ui.player) return;
+const UI_THEMES = [
+  { name: 'Тема «Пентименто»', cls: 'theme-pentimento' },
+  { name: 'Тема «Лазурит»', cls: 'theme-lazurite' },
+  { name: 'Тема «Грунт»', cls: 'theme-grunt' },
+  { name: 'Тема «Охра»', cls: 'theme-okhra' },
+];
+const THEME_KEY = 'palimpsest-ui-theme';
+let lastOwnedNames = new Set();
+
+function applyUiTheme(names) {
+  lastOwnedNames = names;
+  const owned = UI_THEMES.filter((t) => names.has(t.name));
+  const pick = document.getElementById('themePick');
+  if (pick) {
+    pick.innerHTML = `<option value="">— стандартная —</option>${owned
+      .map((t) => `<option value="${t.cls}">${t.name}</option>`).join('')}`;
+    pick.onchange = () => {
+      localStorage.setItem(THEME_KEY, pick.value);
+      applyUiTheme(lastOwnedNames);
+    };
+  }
+  const saved = localStorage.getItem(THEME_KEY) ?? '';
+  const chosen = owned.find((t) => t.cls === saved) ?? owned[0] ?? null;
+  UI_THEMES.forEach((t) => document.body.classList.remove(t.cls));
+  if (chosen) {
+    document.body.classList.add(chosen.cls);
+    if (pick) pick.value = chosen.cls;
+  } else if (pick) {
+    pick.value = '';
+  }
+}
+
+async function refreshOwnedCosmetics() {
+  if (!ui.player) return;
   const names = new Set();
   try {
     const season = await api(`/api/season?playerId=${ui.player.id}`);
     (season.owned ?? []).forEach((n) => names.add(n));
     const ch = await api(`/api/chapter?playerId=${ui.player.id}`);
     (ch.claimedTitles ?? []).forEach((n) => names.add(n));
-  } catch { /* рама — косметика; канон реставрации не трогаем */ }
-  const hit = OWNED_FRAMES.find((f) => names.has(f.name));
-  wrap.style.borderImage = hit
-    ? `url(${hit.url}) ${hit.slice} fill stretch`
-    : `url('/assets/frames/gilded.png') 70 fill stretch`;
+  } catch { /* косметика; канон реставрации не трогаем */ }
+  const wrap = document.getElementById('frameWrap');
+  if (wrap) {
+    const hit = OWNED_FRAMES.find((f) => names.has(f.name));
+    wrap.style.borderImage = hit
+      ? `url(${hit.url}) ${hit.slice} fill stretch`
+      : `url('/assets/frames/gilded.png') 70 fill stretch`;
+  }
+  applyUiTheme(names);
 }
 
 function bar(label, v) {
@@ -558,12 +593,14 @@ async function renderSocial() {
       [['Титул «Носитель Чёрного лака»'], 'Титул «Носитель Чёрного лака»', 'chapters/chapter-2-black-lacquer.jpg'],
       [['Титул «Хранитель Влаги»'], 'Титул «Хранитель Влаги»', 'chapters/chapter-3-salt-water.jpg'],
       [['Титул «Летописец Огня»'], 'Титул «Летописец Огня»', 'chapters/chapter-4-fire-chronicle.jpg'],
+      [['Титул «Следопыт Дымки»'], 'Титул «Следопыт Дымки»', 'chapters/chapter-5-gray-haze.jpg'],
     ];
     const ownedSet = new Set([...(season.owned ?? []), ...(ch.claimedTitles ?? [])]);
-    refreshOwnedFrame();
+    refreshOwnedCosmetics();
     const catalogHtml = `
       <div class="catalog">
         <div class="gallery-title">Каталог наград Манифеста и глав</div>
+        <label class="mono">тема интерфейса: <select id="themePick"></select></label>
         <div class="items-shelf">
           ${rewardCatalog.map(([names, label, icon]) => `
             <div class="item-card${names.some((n) => ownedSet.has(n)) ? ' owned' : ''}">

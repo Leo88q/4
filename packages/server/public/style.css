@@ -191,6 +191,36 @@ label { font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-ite
 }
 .catalog { margin-top: 4px; }
 
+/* скины тем интерфейса — косметика по факту владения (не влияет на механику) */
+body.theme-okhra {
+  --accent: #c98a2e;
+  --accent-2: #a8763c;
+  --panel: #1c1712;
+  --panel-2: #262017;
+}
+body.theme-grunt {
+  --accent: #b3a88c;
+  --accent-2: #8fa3a8;
+  --ink: #ece6d8;
+  --panel: #1b1915;
+  --panel-2: #25221b;
+}
+body.theme-lazurite {
+  --bg: #0e1219;
+  --panel: #151c28;
+  --panel-2: #1c2534;
+  --accent: #d4b24c;
+  --accent-2: #6f9fd8;
+  --ink: #e4e2da;
+}
+body.theme-pentimento {
+  --bg: #140f0d;
+  --panel: #1f1713;
+  --panel-2: #292019;
+  --accent: #c96f4a;
+  --accent-2: #a8785c;
+}
+
 .muted { color: var(--muted); font-size: 13px; line-height: 1.5; }
 .mono { font-family: ui-monospace, Menlo, monospace; font-size: 11px; word-break: break-all; }
 .hidden { display: none !important; }

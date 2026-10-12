@@ -133,6 +133,46 @@ test('глава IV «Огненная летопись»: пожар архив
   assert.equal(prog.order.reward.title, 'Летописец Огня', 'титул заказа главы');
 });
 
+test('глава V «Серая Дымка»: расследование Потемнения, Пентименто и Вернисаж', () => {
+  const ch5 = getChapter('chapter-5-gray-haze');
+  assert.ok(ch5, 'глава V в реестре');
+  assert.equal(ch5.number, 5);
+  assert.equal(ch5.theme, 'Серая Дымка', 'тема совпадает с вариантом голосования DAO');
+  assert.equal(ch5.seasonId, 'palimpsest-season-v1:2027-Q4');
+  assert.match(ch5.hook, /Дымк|расслед/i, 'легенда — расследование причин Потемнения');
+  assert.equal(getChapterByTheme('Серая Дымка'), ch5);
+
+  // календарь: сезон 2027-Q4 принадлежит главе V
+  assert.equal(currentChapter(Date.UTC(2027, 10, 1)).id, 'chapter-5-gray-haze');
+  assert.equal(resolveChapter(null, Date.UTC(2027, 10, 1)).id, 'chapter-5-gray-haze');
+  assert.equal(resolveChapter('chapter-5-gray-haze').id, 'chapter-5-gray-haze');
+
+  const card = chapterCard(ch5);
+  assert.match(card.weekSeed, /^palimpsest-chapter-v1:chapter-5-gray-haze:\d{4}-W\d{2}$/);
+
+  // метрики главы V: Вернисаж, эталоны 95, пентименто, турниры
+  const ctx = {
+    artifacts: [
+      { kind: 'chapter', score: { total: 96 } },
+      { score: { total: 97 } },
+      { score: { total: 88 } },
+    ],
+    bookEntries: [
+      { type: 'exhibit', playerId: 'p1' },
+      { type: 'exhibit', playerId: 'p1' },
+      { type: 'verdict', playerId: 'p1', payload: { verdict: 'fake', correct: true } },
+    ],
+  };
+  const prog = Object.fromEntries(questProgress(ch5, ctx).map((q) => [q.id, q]));
+  assert.equal(prog.order.progress, 1);
+  assert.equal(prog.exhibitor5.progress, 2);
+  assert.equal(prog.restorer30.progress, 3);
+  assert.equal(prog.index95x2.progress, 2, '96 и 97');
+  assert.equal(prog.exposer10.progress, 1);
+  assert.equal(prog.champion5.progress, 0);
+  assert.equal(prog.order.reward.title, 'Следопыт Дымки', 'титул заказа главы');
+});
+
 test('квесты главы: прогресс считается из Книги и артефактов', () => {
   const ch = CHAPTERS[0];
   const ctx = {
