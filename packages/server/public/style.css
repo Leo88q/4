@@ -167,6 +167,29 @@ label { font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-ite
   display: block;
   margin: 0 auto 4px;
 }
+.item-card.owned img { border-color: var(--accent); }
+
+/* галерейный вид акта и каталог наград */
+.gallery {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #2c2620;
+}
+.gallery-title {
+  font-size: 11px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.gallery canvas {
+  width: 100%;
+  max-width: 512px;
+  display: block;
+  border: 1px solid #3a322a;
+  border-radius: 4px;
+}
+.catalog { margin-top: 4px; }
 
 .muted { color: var(--muted); font-size: 13px; line-height: 1.5; }
 .mono { font-family: ui-monospace, Menlo, monospace; font-size: 11px; word-break: break-all; }

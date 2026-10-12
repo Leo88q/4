@@ -4,7 +4,8 @@
  * without trust — CONCEPT.md §9.3).
  */
 import {
-  generate, createState, applyAction, score, stateBytes, renderRgba, GRID, FINDINGS,
+  generate, createState, applyAction, score, stateBytes, renderRgba, renderGalleryRgba,
+  GRID, FINDINGS,
 } from '@palimpsest/sim';
 import { sha256Hex } from '@palimpsest/common';
 
@@ -263,6 +264,11 @@ $('btnFinish').addEventListener('click', async () => {
     ${out.manifest ? `<br/>Манифест: уровень ${out.manifest.level} · опыт ${out.manifest.xp}` : ''}</div>
     <div class="row"><button id="btnMint">Отчеканить cNFT</button></div>
     <div id="mintInfo" class="mono muted"></div>
+    <div class="gallery">
+      <div class="gallery-title">Галерейный вид — как работа предстанет перед публикой</div>
+      <canvas id="galleryCanvas" width="512" height="512"></canvas>
+      <div class="mono muted">декоративная проекция слоёв на живописную подложку эпохи; канонический кадр — источник истины для проверки</div>
+    </div>
   `;
   $('btnMint').onclick = async () => {
     const out = await api(`/api/artifact/${a.id}/mint`, 'POST', {});
@@ -272,8 +278,46 @@ $('btnFinish').addEventListener('click', async () => {
     }
     $('mintInfo').innerHTML = `cNFT: ${out.mint.assetId} · дерево ${out.mint.tree.slice(0, 16)}… · лист #${out.mint.leafIndex} · Книга #${out.bookSeq}`;
   };
+  paintGallery(ui.puzzle, ui.sim);
   refreshMeta();
 });
+
+
+// ---------- галерейная проекция (декоративный вид) ----------
+const GALLERY_FILES = {
+  'Антика': 'antica.jpg',
+  'Тёмное Средневековье': 'dark-age.jpg',
+  'Возрождение': 'renaissance.jpg',
+  'Барокко': 'baroque.jpg',
+  'Импрессионизм': 'impressionism.jpg',
+  'Модерн': 'modern.jpg',
+};
+
+async function paintGallery(puzzle, sim) {
+  const canvas = document.getElementById('galleryCanvas');
+  if (!canvas) return;
+  const file = GALLERY_FILES[puzzle.epoch] ?? 'modern.jpg';
+  const img = new Image();
+  img.src = `/assets/gallery/${file}`;
+  try { await img.decode(); } catch { return; }
+  const off = document.createElement('canvas');
+  off.width = 512; off.height = 512;
+  const octx = off.getContext('2d');
+  octx.drawImage(img, 0, 0, 512, 512);
+  const base = octx.getImageData(0, 0, 512, 512);
+  const out = renderGalleryRgba(base.data, 512, 512, {
+    varnish: sim.varnish,
+    loss: sim.loss,
+    tear: sim.tear,
+    patch: sim.patch,
+    restored: sim.restored,
+    restoredMask: sim.restoredMask,
+    newVarnish: sim.newVarnish,
+    finished: sim.finished,
+  });
+  const gctx = canvas.getContext('2d');
+  gctx.putImageData(new ImageData(new Uint8ClampedArray(out.buffer), 512, 512), 0, 0);
+}
 
 function bar(label, v) {
   return `<div class="bar"><span>${label}</span><div class="track"><div style="width:${v}%"></div></div><b>${v}</b></div>`;
@@ -474,9 +518,28 @@ async function renderSocial() {
         ].map(([file, name]) => `
           <div class="item-card"><img src="/assets/items/${file}.png" alt="${name}" />${name}</div>`).join('')}
       </div>`;
+    const rewardCatalog = [
+      ['Рама «Кракелюр»', 'frame-crackle'],
+      ['Рама «Сусальное золото»', 'frame-gold'],
+      ['Тема «Лазурит»', 'theme-lazurite'],
+      ['Тема «Пентименто»', 'theme-pentimento'],
+      ['Инструмент «Кисть реставратора»', 'brush'],
+    ];
+    const ownedSet = new Set([...(season.owned ?? []), ...(ch.claimedTitles ?? [])]);
+    const catalogHtml = `
+      <div class="catalog">
+        <div class="gallery-title">Каталог наград Манифеста</div>
+        <div class="items-shelf">
+          ${rewardCatalog.map(([name, file]) => `
+            <div class="item-card${ownedSet.has(name) ? ' owned' : ''}">
+              <img src="/assets/items/${file}.png" alt="${name}" />${name}${ownedSet.has(name) ? ' ✔' : ''}
+            </div>`).join('')}
+        </div>
+      </div>`;
     box.innerHTML = `
       ${chapterHtml}
       ${itemsShelf}
+      ${catalogHtml}
       ${rew.ok ? `<p class="mono">спонсорский просмотр: осталось ${rew.left}/${rew.dailyCap} (+${rew.grant} пигм.)
         <button id="rWatch">смотреть</button></p>` : ''}
       ${dao.ok ? `
