@@ -7,7 +7,8 @@ import path from 'node:path';
 process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'palimpsest-chapter-'));
 const { startServer } = await import('../src/index.js');
 const {
-  CHAPTERS, currentChapter, getChapter, chapterCard, chapterWeekSeed, isoWeek,
+  CHAPTERS, currentChapter, getChapter, getChapterByTheme, resolveChapter,
+  chapterCard, chapterWeekSeed, isoWeek,
   questProgress, CHAPTER_ORDER_BONUS,
 } = await import('../src/chapter.js');
 
@@ -30,6 +31,52 @@ test('глава I «Великое Потемнение»: карточка и 
   assert.notEqual(chapterWeekSeed(ch, t), chapterWeekSeed(ch, t + 14 * 86400000));
   assert.equal(getChapter('chapter-1-darkening'), ch);
   assert.equal(getChapter('nope'), null);
+});
+
+test('глава II «Чёрный лак»: реестр, метрики квестов, выбор DAO важнее календаря', () => {
+  const ch2 = getChapter('chapter-2-black-lacquer');
+  assert.ok(ch2, 'глава II в реестре');
+  assert.equal(ch2.theme, 'Чёрный лак', 'тема совпадает с вариантом голосования DAO');
+  assert.equal(ch2.seasonId, 'palimpsest-season-v1:2027-Q1');
+  assert.match(ch2.hook, /лак|слой/i);
+
+  // календарь: со следующего сезона глава II становится текущей
+  assert.equal(currentChapter(Date.UTC(2027, 1, 1)).id, 'chapter-2-black-lacquer');
+  // выбор Мастерских активирует главу сразу, вне календаря
+  assert.equal(resolveChapter('chapter-2-black-lacquer').id, 'chapter-2-black-lacquer');
+  assert.equal(resolveChapter(null).id, 'chapter-1-darkening', 'без выбора — сезон 2026-Q4');
+  assert.equal(getChapterByTheme('Чёрный лак'), ch2);
+  assert.equal(getChapterByTheme('Соль и влага'), null);
+
+  // метрики главы II: консервация, эталон 95, три разоблачения, гильдия, два титула
+  const ctx = {
+    artifacts: [
+      { kind: 'chapter', score: { total: 70 }, conservation: { kind: 1, thickness: 0.5 } },
+      { kind: 'private', score: { total: 96 }, conservation: { kind: 0, thickness: 0.3 } },
+      { kind: 'private', score: { total: 40 } },
+    ],
+    bookEntries: [
+      { type: 'verdict', playerId: 'p', payload: { verdict: 'fake', correct: true } },
+      { type: 'verdict', playerId: 'p', payload: { verdict: 'fake', correct: true } },
+      { type: 'verdict', playerId: 'p', payload: { verdict: 'fake', correct: true } },
+      { type: 'guild', playerId: 'p', payload: { event: 'joined' } },
+      {
+        type: 'tournament',
+        playerId: 'p',
+        payload: { event: 'finished', rewards: { places: [{ rank: 1, playerId: 'p' }] } },
+      },
+    ],
+  };
+  const byId = Object.fromEntries(questProgress(ch2, ctx).map((q) => [q.id, q]));
+  assert.equal(byId.order.progress, 1);
+  assert.equal(byId.conservator.progress, 2);
+  assert.equal(byId.conservator.complete, true);
+  assert.equal(byId.restorer10.progress, 3);
+  assert.equal(byId.masterpiece95.progress, 1, '96 ≥ 95');
+  assert.equal(byId.exposer.progress, 3);
+  assert.equal(byId.exposer.complete, true);
+  assert.equal(byId.guildmate.complete, true);
+  assert.equal(byId.champion2.progress, 1, 'одна победа из двух');
 });
 
 test('квесты главы: прогресс считается из Книги и артефактов', () => {

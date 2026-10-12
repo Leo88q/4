@@ -14,6 +14,7 @@ export const CHAPTERS = [
     id: 'chapter-1-darkening',
     number: 1,
     seasonId: 'palimpsest-season-v1:2026-Q4',
+    theme: 'Великое Потемнение',
     title: 'Великое Потемнение',
     subtitle: 'Серая Дымка',
     motto: 'Каждый слой должен быть записан.',
@@ -69,6 +70,80 @@ export const CHAPTERS = [
       },
     ],
   },
+  {
+    id: 'chapter-2-black-lacquer',
+    number: 2,
+    seasonId: 'palimpsest-season-v1:2027-Q1',
+    theme: 'Чёрный лак',
+    title: 'Чёрный лак',
+    subtitle: 'Тёмный слой',
+    motto: 'Не стирай слой — запиши его.',
+    hook: 'Рецепты растворителей утрачены вместе со школами — но не со слоями. '
+      + 'Чёрный лак Потемнения стал главным врагом и главным учителем: под ним '
+      + 'находят чужие реставрации, имена и подмалёвки Серых Кистей. Мастерская '
+      + 'берёт заказы на самый тёмный слой эпохи — и отвечает за него перед Книгой.',
+    lore: 'docs/lore.md §2–3 «Великое Потемнение», «Мастерские и Манифест Слоёв»',
+    orderTitle: 'Из Схрона: полотно под чёрным лаком',
+    weekSeedPrefix: 'palimpsest-chapter-v1:chapter-2-black-lacquer',
+    quests: [
+      {
+        id: 'order',
+        metric: 'order',
+        title: 'Заказ главы',
+        description: 'Завершить реставрацию заказа главы (раз в неделю единый холст для всех)',
+        target: 1,
+        reward: { pigments: 60, title: 'Носитель Чёрного лака' },
+      },
+      {
+        id: 'conservator',
+        metric: 'conservations',
+        title: 'Дыхание времени',
+        description: 'Завершить 2 реставрации с консервацией (новый лак зафиксирован)',
+        target: 2,
+        reward: { pigments: 90 },
+      },
+      {
+        id: 'restorer10',
+        metric: 'restorations',
+        title: 'Десять слоёв',
+        description: 'Завершить 10 реставраций',
+        target: 10,
+        reward: { pigments: 120 },
+      },
+      {
+        id: 'masterpiece95',
+        metric: 'index95',
+        title: 'Совершенный слой',
+        description: 'Реставрация с Индексом Палимпсеста ≥ 95',
+        target: 1,
+        reward: { pigments: 200 },
+      },
+      {
+        id: 'exposer',
+        metric: 'fakes_exposed',
+        title: 'Три тени',
+        description: 'Раскрыть 3 подмалёвка в Пентименто',
+        target: 3,
+        reward: { pigments: 150 },
+      },
+      {
+        id: 'guildmate',
+        metric: 'guild_events',
+        title: 'Манифест',
+        description: 'Состоять в Мастерской (вступить или основать)',
+        target: 1,
+        reward: { pigments: 80 },
+      },
+      {
+        id: 'champion2',
+        metric: 'tournament_wins',
+        title: 'Дважды на стене',
+        description: 'Победить в двух турнирах',
+        target: 2,
+        reward: { pigments: 250 },
+      },
+    ],
+  },
 ];
 
 /** Бонус Пигментов за завершение заказа главы. */
@@ -81,6 +156,19 @@ export function currentChapter(nowMs = Date.now()) {
 
 export function getChapter(id) {
   return CHAPTERS.find((c) => c.id === id) ?? null;
+}
+
+/** Глава по теме (голосование DAO: «Чёрный лак» → глава II). */
+export function getChapterByTheme(theme) {
+  return CHAPTERS.find((c) => c.theme === theme) ?? null;
+}
+
+/**
+ * Активная глава: выбор Мастерских (DAO) имеет приоритет над календарём
+ * сезона; без выбора — глава текущего сезона.
+ */
+export function resolveChapter(activeChapterId, nowMs = Date.now()) {
+  return (activeChapterId ? getChapter(activeChapterId) : null) ?? currentChapter(nowMs);
 }
 
 /** ISO-неделя (YYYY-Www) — недельный общий холст главы. */
@@ -101,31 +189,45 @@ export function chapterWeekSeed(chapter, nowMs = Date.now()) {
 
 /**
  * Прогресс квестов из журнала и артефактов.
+ * Метрики — производные (без счётчиков): журнал и артефакты — источник истины.
  * @param {object} chapter
  * @param {{artifacts?: object[], bookEntries?: object[]}} ctx
  */
 export function questProgress(chapter, ctx = {}) {
   const artifacts = ctx.artifacts ?? [];
   const book = ctx.bookEntries ?? [];
-  const done = {
+  const fakes = book.filter((e) => e.type === 'verdict'
+    && e.payload?.verdict === 'fake' && e.payload?.correct === true).length;
+  const wins = book.filter((e) => e.type === 'tournament'
+    && e.payload?.event === 'finished' && e.payload?.rewards?.places?.[0]?.playerId === e.playerId).length;
+  const metrics = {
     order: artifacts.filter((a) => a.kind === 'chapter').length,
     restorer: artifacts.length,
+    restorations: artifacts.length,
     masterpiece: artifacts.filter((a) => (a.score?.total ?? 0) >= 90).length,
-    detective: book.filter((e) => e.type === 'verdict'
-      && e.payload?.verdict === 'fake' && e.payload?.correct === true).length,
+    index90: artifacts.filter((a) => (a.score?.total ?? 0) >= 90).length,
+    index95: artifacts.filter((a) => (a.score?.total ?? 0) >= 95).length,
+    detective: fakes,
+    fakes_exposed: fakes,
     curator: book.filter((e) => e.type === 'exhibit').length,
-    champion: book.filter((e) => e.type === 'tournament'
-      && e.payload?.event === 'finished' && e.payload?.rewards?.places?.[0]?.playerId === e.playerId).length,
+    exhibits: book.filter((e) => e.type === 'exhibit').length,
+    guild_events: book.filter((e) => e.type === 'guild').length,
+    conservations: artifacts.filter((a) => a.conservation != null).length,
+    champion: wins,
+    tournament_wins: wins,
   };
-  return chapter.quests.map((q) => ({
-    id: q.id,
-    title: q.title,
-    description: q.description,
-    target: q.target,
-    progress: Math.min(done[q.id] ?? 0, q.target),
-    complete: (done[q.id] ?? 0) >= q.target,
-    reward: q.reward,
-  }));
+  return chapter.quests.map((q) => {
+    const value = metrics[q.metric ?? q.id] ?? 0;
+    return {
+      id: q.id,
+      title: q.title,
+      description: q.description,
+      target: q.target,
+      progress: Math.min(value, q.target),
+      complete: value >= q.target,
+      reward: q.reward,
+    };
+  });
 }
 
 /** Публичная карточка главы (без служебных полей). */

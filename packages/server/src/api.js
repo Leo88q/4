@@ -52,8 +52,8 @@ import {
   assignRound, recordRound, finishTournament, standings as tournamentStandings,
 } from './tournament.js';
 import {
-  currentChapter, getChapter, chapterCard, chapterWeekSeed, questProgress,
-  CHAPTER_ORDER_BONUS,
+  chapterCard, chapterWeekSeed, questProgress,
+  resolveChapter, CHAPTER_ORDER_BONUS,
 } from './chapter.js';
 import { REWARDED, rewardedState } from './rewarded.js';
 import {
@@ -293,7 +293,7 @@ export function createApi(store, deps = {}) {
       }
 
       if (req.method === 'GET' && pathname === '/api/chapter') {
-        const chapter = currentChapter();
+        const chapter = resolveChapter(store.dao?.activeChapterId);
         const playerId = new URL(req.url, 'http://x').searchParams.get('playerId');
         const player = playerId ? await store.getPlayer(playerId) : null;
         let quests = chapter.quests.map((q) => ({
@@ -362,7 +362,7 @@ export function createApi(store, deps = {}) {
           if (body.kind === 'chapter') {
             // Заказ главы: единый холст недели для всех мастеров (равный старт)
             kind = 'chapter';
-            seed = chapterWeekSeed(currentChapter());
+            seed = chapterWeekSeed(resolveChapter(store.dao?.activeChapterId));
           }
           if (body.kind === 'tournament') {
             // Турнирная партия: равный старт — сид раунда одинаков для всех.
@@ -432,7 +432,7 @@ export function createApi(store, deps = {}) {
         if (pathname === '/api/chapter/quest/claim') {
           const player = await store.getPlayer(body.playerId);
           if (!player) return bad(res, 400, 'unknown_player');
-          const chapter = currentChapter();
+          const chapter = resolveChapter(store.dao?.activeChapterId);
           const quest = chapter.quests.find((q) => q.id === body.questId);
           if (!quest) return bad(res, 404, 'unknown_quest');
           player.chapterClaims = player.chapterClaims ?? {};

@@ -50,6 +50,9 @@ test('proto-DAO: вес голоса = престиж Мастерской, те
   assert.equal(proposal.result.winner, 'Чёрный лак');
   assert.equal(effect.nextTheme, 'Чёрный лак');
   assert.equal(store.dao.nextTheme, 'Чёрный лак');
+  // выбор Мастерской активирует главу II «Чёрный лак»
+  assert.equal(effect.nextChapterId, 'chapter-2-black-lacquer');
+  assert.equal(store.dao.activeChapterId, 'chapter-2-black-lacquer');
   // повторное закрытие нельзя
   await assert.rejects(() => closeProposal(store, p.id), /proposal_closed/);
 });
@@ -109,10 +112,17 @@ test('API proto-DAO: предложение, голоса Мастерских, 
   assert.equal(closed.ok, true, JSON.stringify(closed));
   assert.equal(closed.proposal.result.winner, 'Чёрный лак');
   assert.equal(closed.effect.nextTheme, 'Чёрный лак');
+  assert.equal(closed.effect.nextChapterId, 'chapter-2-black-lacquer');
 
   const dao = await get('/api/dao');
   assert.equal(dao.state.nextTheme, 'Чёрный лак');
+  assert.equal(dao.state.activeChapterId, 'chapter-2-black-lacquer');
   assert.ok(dao.state.closed.some((x) => x.id === pid));
+
+  // решение DAO переключило активную главу: «Чёрный лак» играется сейчас
+  const ch = await get('/api/chapter');
+  assert.equal(ch.chapter.id, 'chapter-2-black-lacquer');
+  assert.equal(ch.chapter.title, 'Чёрный лак');
 
   const book = await get('/api/book');
   const events = book.entries.filter((e) => e.type === 'dao').map((e) => e.payload.event);

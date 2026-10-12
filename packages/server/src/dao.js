@@ -8,6 +8,7 @@
  * обещаний доходности, казна — игровые комиссии (§6.3/§6.4).
  */
 import { DomainError, guildOfPlayer, guildStats } from './social/guilds.js';
+import { getChapterByTheme } from './chapter.js';
 
 export const PROPOSAL_KINDS = {
   theme: { label: 'Тема следующей главы', options: ['Чёрный лак', 'Соль и влага', 'Огненная летопись'] },
@@ -105,7 +106,14 @@ export async function closeProposal(store, proposalId) {
   if (p.kind === 'theme' && winner) {
     store.dao = store.dao ?? {};
     store.dao.nextTheme = winner.option;
-    effect = { nextTheme: winner.option };
+    // выбор Мастерской активирует главу с этой темой (если она есть в реестре)
+    const chapter = getChapterByTheme(winner.option);
+    if (chapter) {
+      store.dao.activeChapterId = chapter.id;
+      effect = { nextTheme: winner.option, nextChapterId: chapter.id };
+    } else {
+      effect = { nextTheme: winner.option };
+    }
   }
   if (p.kind === 'sponsor' && winner && store.treasury) {
     const share = winner.option === '100%' ? 1 : 0.5;
@@ -148,6 +156,7 @@ export async function daoState(store) {
   const all = await store.listProposals();
   return {
     nextTheme: store.dao?.nextTheme ?? null,
+    activeChapterId: store.dao?.activeChapterId ?? null,
     open: all.filter((p) => p.status === 'open').map(proposalView),
     closed: all.filter((p) => p.status === 'closed').slice(-5).map(proposalView),
   };
