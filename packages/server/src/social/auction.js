@@ -95,6 +95,16 @@ export async function settleAuction(store, auctionId) {
   await store.putPlayer(buyer);
   await store.putPlayer(seller);
 
+  // §4.2: из комиссии 50% — призовой фонд турниров, 30% — гильдиям, 20% — развитие.
+  if (store.treasury) {
+    const prize = Math.round(fee * 0.5);
+    const guild = Math.round(fee * 0.3);
+    store.treasury.prize += prize;
+    store.treasury.guild += guild;
+    store.treasury.dev += fee - prize - guild;
+    await store.save();
+  }
+
   // владение артефактом переходит (виртуальная купля-продажа)
   const artifact = await store.getArtifact(auction.artifactId);
   if (artifact) {

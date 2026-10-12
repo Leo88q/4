@@ -215,8 +215,8 @@ $('btnEnter').addEventListener('click', async () => {
   $('btnPrivate').disabled = false;
 });
 
-async function startSession(kind) {
-  const out = await api('/api/session', 'POST', { playerId: ui.player.id, kind });
+async function startSession(kind, extra = {}) {
+  const out = await api('/api/session', 'POST', { playerId: ui.player.id, kind, ...extra });
   if (!out.ok) return;
   ui.session = { id: out.sessionId, seed: out.seed, startedAt: out.startedAt, finishedLocally: false };
   ui.puzzle = generate(out.seed);
@@ -276,7 +276,9 @@ $('btnFinish').addEventListener('click', async () => {
     </div>
     <div class="mono">артефакт ${a.id}<br/>merkle ${a.actionsMerkle.slice(0, 24)}…<br/>
     Книга Слоёв: запись #${a.bookSeq}${a.flags.length ? ` · флаги: ${a.flags.join(', ')}` : ''}<br/>
-    stateHash сверка: ${a.stateHashMatch === null ? 'не запрошена' : (a.stateHashMatch ? 'совпал ✔' : 'расхождение ✘')}</div>
+    stateHash сверка: ${a.stateHashMatch === null ? 'не запрошена' : (a.stateHashMatch ? 'совпал ✔' : 'расхождение ✘')}
+    ${out.tournament ? `<br/>турнирная партия #${out.tournament.round} зачтена` : ''}
+    ${out.manifest ? `<br/>Манифест: уровень ${out.manifest.level} · опыт ${out.manifest.xp}` : ''}</div>
     <div class="row"><button id="btnMint">Отчеканить cNFT</button></div>
     <div id="mintInfo" class="mono muted"></div>
   `;
@@ -452,6 +454,73 @@ async function renderSocial() {
           ? `<p>${out.correct ? 'вердикт верен ✔' : 'вердикт ошибочен ✘'} · ${out.reward > 0 ? '+' : ''}${out.reward} пигментов · истина: ${out.truth}</p>`
           : `<p>${out.reason}</p>`);
         renderSocial();
+      };
+    });
+    return;
+  }
+  if (social.tab === 'season') {
+    const [season, tourns] = await Promise.all([
+      api(`/api/season?playerId=${ui.player.id}`),
+      api('/api/tournaments'),
+    ]);
+    const m = season.manifest ?? { level: 0, xp: 0, premium: false };
+    box.innerHTML = `
+      <p><b>${season.seasonId}</b> · слой Аттестата: <b>${season.tier ?? '—'}</b><br/>
+      Манифест: уровень <b>${m.level}</b> · опыт ${m.xp} ${m.premium ? '· глава открыта ✦' : '· глава закрыта'}
+      · реставраций ${season.stats.verifiedSessions} · побед ${season.stats.tournamentWins}</p>
+      <div class=\"row\">
+        <button id=\"mClaim\">Забрать награды</button>
+        ${m.premium ? '' : '<button id=\"mUnlock\">Открыть главу (100 киновари)</button>'}
+        <button id=\"tCreate\">Новый турнир</button>
+      </div>
+      <p class=\"mono\">награды: ${(season.owned ?? []).join(' · ') || '—'}</p>
+      <ol>${(tourns.rows ?? []).map((t) => `
+        <li><b>${t.name}</b> — ${t.kind} · ${t.status} · игроков ${t.players} · фонд ${t.prizePool.total}
+          <button data-tid=\"${t.id}\" class=\"tEnter\">заявиться</button>
+          <button data-tid=\"${t.id}\" class=\"tPlay\">сыграть партию</button>
+          <button data-tid=\"${t.id}\" class=\"tStart\">старт</button>
+          <button data-tid=\"${t.id}\" class=\"tFinish\">финиш</button>
+          <button data-tid=\"${t.id}\" class=\"tTable\">таблица</button></li>`).join('') || '<li>турниров нет</li>'}</ol>
+      <div id=\"tTableBox\" class=\"mono\"></div>`;
+    $('mUnlock').onclick = async () => {
+      const out = await api('/api/season/manifest/unlock', 'POST', { playerId: ui.player.id });
+      box.insertAdjacentHTML('beforeend', out.ok ? '<p>глава открыта ✦</p>' : `<p>${out.reason}</p>`);
+      renderSocial();
+    };
+    $('mClaim').onclick = async () => {
+      const level = Number(prompt(`уровень для выдачи (1–${m.level})`, String(m.level)) ?? 0);
+      const out = await api('/api/season/manifest/claim', 'POST', { playerId: ui.player.id, level });
+      box.insertAdjacentHTML('beforeend', out.ok ? `<p>получено: ${out.claimed.join(' · ')}</p>` : `<p>${out.reason}</p>`);
+      renderSocial();
+    };
+    $('tCreate').onclick = async () => {
+      const name = prompt('название турнира');
+      if (!name) return;
+      const kind = prompt('тип: duel (3 партии) или triptych (5)', 'duel') ?? 'duel';
+      const sponsor = Number(prompt('спонсорский фонд (пигменты)', '100') ?? 0);
+      const out = await api('/api/tournament', 'POST', { name, kind, sponsor, playerId: ui.player.id });
+      if (!out.ok) box.insertAdjacentHTML('beforeend', `<p>${out.reason}</p>`);
+      renderSocial();
+    };
+    const call = (cls, fn) => box.querySelectorAll(cls).forEach((b) => {
+      b.onclick = async () => {
+        const out = await fn(b.dataset.tid);
+        if (out && !out.ok) box.insertAdjacentHTML('beforeend', `<p>${out.reason}</p>`);
+        renderSocial();
+      };
+    });
+    call('.tEnter', (tid) => api(`/api/tournament/${tid}/enter`, 'POST', { playerId: ui.player.id }));
+    call('.tStart', (tid) => api(`/api/tournament/${tid}/start`, 'POST', {}));
+    call('.tFinish', (tid) => api(`/api/tournament/${tid}/finish`, 'POST', {}));
+    box.querySelectorAll('.tPlay').forEach((b) => {
+      b.onclick = () => startSession('tournament', { tournamentId: b.dataset.tid });
+    });
+    box.querySelectorAll('.tTable').forEach((b) => {
+      b.onclick = async () => {
+        const out = await api(`/api/tournament/${b.dataset.tid}`);
+        $('tTableBox').innerHTML = out.ok
+          ? `<p><b>${out.tournament.name}</b> · фонд ${out.tournament.prizePool.total}</p><ol>${out.standings.map((r) => `#${r.rank} ${r.playerId.slice(0, 10)}… · медиана ${r.median} · партий ${r.played}`).join('') || '<li>партий нет</li>'}</ol>`
+          : `<p>${out.reason}</p>`;
       };
     });
   }

@@ -58,3 +58,17 @@ CREATE TABLE IF NOT EXISTS exhibitions (
     id   TEXT PRIMARY KEY,
     data JSONB NOT NULL
 );
+
+-- Сезонные турниры (§4.7) и казна комиссий (§4.2: 50/30/20).
+CREATE TABLE IF NOT EXISTS tournaments (
+    id         TEXT PRIMARY KEY,
+    data       JSONB NOT NULL,
+    status     TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS tournaments_status_idx ON tournaments (status, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS treasury (
+    id   TEXT PRIMARY KEY,
+    data JSONB NOT NULL
+);

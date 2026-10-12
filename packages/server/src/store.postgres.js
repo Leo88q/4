@@ -22,6 +22,7 @@ export class PgStore {
   constructor(client) {
     this.client = client;
     this.book = new Book();
+    this.treasury = { prize: 0, guild: 0, dev: 0 };
     this._loaded = false;
   }
 
@@ -39,6 +40,8 @@ export class PgStore {
     else await this.client.query(schemaSql);
     const { rows } = await this.client.query('SELECT entry FROM book ORDER BY seq ASC');
     this.book = new Book(rows.map((r) => (typeof r.entry === 'string' ? JSON.parse(r.entry) : r.entry)));
+    const tr = await this.client.query("SELECT data FROM treasury WHERE id = 'treasury'");
+    if (tr.rows.length) this.treasury = { ...this.treasury, ...parse(tr.rows[0].data) };
     this._loaded = true;
   }
 
@@ -151,10 +154,6 @@ export class PgStore {
     };
   }
 
-  async save() {
-    /* writes are immediate */
-  }
-
   // ---------- social layer ----------
   async listArtifacts() {
     const { rows } = await this.client.query('SELECT data FROM artifacts ORDER BY created_at ASC');
@@ -215,6 +214,36 @@ export class PgStore {
       `INSERT INTO exhibitions (id, data) VALUES ($1, $2)
        ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
       [e.id, JSON.stringify(e)],
+    );
+  }
+
+  // ---------- tournaments + treasury (§4.7/§4.2) ----------
+  async getTournament(id) {
+    const { rows } = await this.client.query('SELECT data FROM tournaments WHERE id = $1', [id]);
+    return rows.length ? parse(rows[0].data) : null;
+  }
+
+  async putTournament(t) {
+    await this.client.query(
+      `INSERT INTO tournaments (id, data, status) VALUES ($1, $2, $3)
+       ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, status = EXCLUDED.status`,
+      [t.id, JSON.stringify(t), t.status],
+    );
+  }
+
+  async listTournaments() {
+    const { rows } = await this.client.query(
+      'SELECT data FROM tournaments ORDER BY created_at DESC LIMIT 50',
+    );
+    return rows.map((r) => parse(r.data));
+  }
+
+  async save() {
+    // treasury is the only mutable global; persist it on every save.
+    await this.client.query(
+      `INSERT INTO treasury (id, data) VALUES ('treasury', $1)
+       ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
+      [JSON.stringify(this.treasury)],
     );
   }
 }

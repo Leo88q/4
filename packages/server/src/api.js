@@ -12,6 +12,13 @@
  *   GET  /api/leaderboard?date=
  *   GET  /api/attestation/:playerId
  *   GET  /api/book
+ *   GET  /api/season?playerId=          сезон + Манифест + слой Аттестата
+ *   POST /api/season/manifest/unlock    {playerId} платная глава Манифеста (100 Киновари)
+ *   POST /api/season/manifest/claim     {playerId, level}
+ *   GET  /api/tournaments
+ *   POST /api/tournament                {name, kind?, sponsor?}
+ *   GET  /api/tournament/:id
+ *   POST /api/tournament/:id/enter|start|finish
  */
 import { sha256Hex, hashObject, dailySeedString, mixChainEntropy, merkleProof, buildMerkle } from '@palimpsest/common';
 import { simulate, validateActionLog, generate, SESSION_TTL_MS, SIM_VERSION, conservationOf, agingProjection } from '@palimpsest/sim';
@@ -27,6 +34,15 @@ import {
   createAuction, placeBid, settleAuction, auctionView, auctionListView,
 } from './social/auction.js';
 import { listCases, investigate, evidence } from './social/pentimento.js';
+import {
+  seasonIdFor, ensureManifest, grantManifestXp, unlockManifestPremium,
+  claimManifestRewards, rewardsForLevel, seasonStats, seasonEntriesFromBook,
+  awardTier, MANIFEST_XP,
+} from './season.js';
+import {
+  TOURNAMENT_KINDS, createTournament, enterTournament, startTournament,
+  assignRound, recordRound, finishTournament, standings as tournamentStandings,
+} from './tournament.js';
 import { planMint, buildMetadata } from '@palimpsest/chain-sdk/bubblegum';
 
 const json = (res, code, body) => {
@@ -224,6 +240,42 @@ export function createApi(store, deps = {}) {
         return json(res, 200, { ok: true, rows: await listCases(store) });
       }
 
+      if (req.method === 'GET' && pathname === '/api/season') {
+        const playerId = new URL(req.url, 'http://x').searchParams.get('playerId');
+        const player = playerId ? await store.getPlayer(playerId) : null;
+        const manifest = player ? ensureManifest(player) : null;
+        const entries = player ? seasonEntriesFromBook(store.book.entries, player.id) : [];
+        const stats = seasonStats(entries);
+        return json(res, 200, {
+          ok: true,
+          seasonId: seasonIdFor(),
+          manifest,
+          owned: manifest ? rewardsForLevel(manifest.level, manifest.premium) : [],
+          stats,
+          tier: awardTier(stats),
+          xpSources: Object.entries(MANIFEST_XP).map(([kind, xp]) => ({ kind, xp })),
+        });
+      }
+
+      if (req.method === 'GET' && pathname === '/api/tournaments') {
+        const rows = (await store.listTournaments()).map((t) => ({
+          id: t.id,
+          name: t.name,
+          kind: t.kind,
+          status: t.status,
+          players: t.entry.length,
+          prizePool: t.prizePool,
+          seasonId: t.seasonId,
+        }));
+        return json(res, 200, { ok: true, rows });
+      }
+
+      if (req.method === 'GET' && pathname.startsWith('/api/tournament/')) {
+        const t = await store.getTournament(pathname.slice('/api/tournament/'.length));
+        if (!t) return bad(res, 404, 'unknown_tournament');
+        return json(res, 200, { ok: true, tournament: t, standings: tournamentStandings(t) });
+      }
+
       // ---------- writes ----------
       if (req.method === 'POST') {
         const rl = rateLimit(req.socket.remoteAddress ?? 'anon');
@@ -246,8 +298,22 @@ export function createApi(store, deps = {}) {
         if (pathname === '/api/session') {
           const player = await store.getPlayer(body.playerId);
           if (!player) return bad(res, 400, 'unknown_player');
-          const kind = body.kind === 'private' ? 'private' : 'daily';
-          const seed = kind === 'daily' ? todaySeed() : `palimpsest-private:${player.id}:${Date.now()}`;
+          let kind = body.kind === 'private' ? 'private' : 'daily';
+          let seed = kind === 'daily' ? todaySeed() : `palimpsest-private:${player.id}:${Date.now()}`;
+          let tournamentRef = null;
+          if (body.kind === 'tournament') {
+            // Турнирная партия: равный старт — сид раунда одинаков для всех.
+            const t = await store.getTournament(body.tournamentId);
+            if (!t) return bad(res, 400, 'unknown_tournament');
+            try {
+              const { round, seed: tSeed } = assignRound(t, player.id);
+              kind = 'tournament';
+              seed = tSeed;
+              tournamentRef = { tournamentId: t.id, round };
+            } catch (e) {
+              return bad(res, 409, e.reason);
+            }
+          }
           const session = {
             id: newId('ses'),
             playerId: player.id,
@@ -259,6 +325,7 @@ export function createApi(store, deps = {}) {
             flags: [],
             finished: false,
             artifactId: null,
+            tournament: tournamentRef,
           };
           await store.putSession(session);
           return json(res, 200, {
@@ -271,6 +338,57 @@ export function createApi(store, deps = {}) {
         }
 
         // ---------- social writes ----------
+        if (pathname === '/api/season/manifest/unlock') {
+          const player = await store.getPlayer(body.playerId);
+          if (!player) return bad(res, 400, 'unknown_player');
+          // Платная глава Манифеста: 100 Киновари (мок-платеж). Только косметика.
+          const price = 100;
+          if ((player.cinnabar ?? 0) < price) return bad(res, 402, 'not_enough_cinnabar');
+          player.cinnabar -= price;
+          unlockManifestPremium(player);
+          await store.putPlayer(player);
+          return json(res, 200, {
+            ok: true,
+            manifest: player.manifest,
+            owned: rewardsForLevel(player.manifest.level, true),
+          });
+        }
+
+        if (pathname === '/api/season/manifest/claim') {
+          const player = await store.getPlayer(body.playerId);
+          if (!player) return bad(res, 400, 'unknown_player');
+          try {
+            const items = claimManifestRewards(player, Number(body.level) || 0);
+            await store.putPlayer(player);
+            return json(res, 200, { ok: true, claimed: items, cosmetics: player.cosmetics });
+          } catch (e) {
+            return bad(res, 409, e.message);
+          }
+        }
+
+        if (pathname === '/api/tournament') {
+          const t = await createTournament(store, body);
+          return json(res, 200, { ok: true, tournament: t });
+        }
+
+        const tournAct = pathname.match(/^\/api\/tournament\/([^/]+)\/(enter|start|finish)$/);
+        if (tournAct) {
+          const t = await store.getTournament(tournAct[1]);
+          if (!t) return bad(res, 404, 'unknown_tournament');
+          if (tournAct[2] === 'enter') {
+            await enterTournament(store, t, body.playerId);
+          } else if (tournAct[2] === 'start') {
+            await startTournament(store, t);
+          } else {
+            await finishTournament(store, t);
+          }
+          return json(res, 200, {
+            ok: true,
+            tournament: t,
+            standings: tournamentStandings(t),
+          });
+        }
+
         if (pathname === '/api/guild') {
           const guild = await createGuild(store, body);
           return json(res, 200, { ok: true, guild });
@@ -285,6 +403,11 @@ export function createApi(store, deps = {}) {
 
         if (pathname === '/api/vernissage/submit') {
           const ex = await submitExhibit(store, body);
+          const exhibitor = await store.getPlayer(body.playerId);
+          if (exhibitor) {
+            grantManifestXp(exhibitor, 'exhibit');
+            await store.putPlayer(exhibitor);
+          }
           return json(res, 200, { ok: true, entries: ex.entries.length });
         }
         if (pathname === '/api/vernissage/vote') {
@@ -422,6 +545,29 @@ export function createApi(store, deps = {}) {
           session.artifactId = artifactId;
           // экономика: Пигменты за качество реставрации (CONCEPT.md §6.1)
           player.pigments = (player.pigments ?? 0) + result.score.total;
+          // Киноварь — медленно: только за эталонные реставрации (Index ≥ 90)
+          if (result.score.total >= 90) player.cinnabar = (player.cinnabar ?? 0) + 2;
+          // Манифест сезона + турнирная партия (§4.6/§4.7)
+          let tournamentResult = null;
+          if (session.tournament) {
+            const t = await store.getTournament(session.tournament.tournamentId);
+            if (t) {
+              await recordRound(store, t, player.id, {
+                round: session.tournament.round,
+                seed: session.seed,
+                scoreIndex: result.score.total,
+                // счёт серверный (пересимуляция) — достоверен всегда;
+                // флаги темпа — материал для Смотрителя, а не дисквалификация
+                verified: true,
+                timeMs: Date.now() - session.startedAt,
+                sessionId: session.id,
+                flags: artifact.flags,
+              });
+              tournamentResult = { tournamentId: t.id, round: session.tournament.round };
+            }
+          } else {
+            grantManifestXp(player, 'session');
+          }
           await store.putPlayer(player);
           await store.putArtifact(artifact);
           await store.putSession(session);
@@ -433,6 +579,8 @@ export function createApi(store, deps = {}) {
             ok: true,
             artifact,
             chainCommit,
+            tournament: tournamentResult,
+            manifest: ensureManifest(player),
             bookHead: store.book.head(),
             leaderboard: await store.dailyLeaderboard(session.date),
           });

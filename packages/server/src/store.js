@@ -18,6 +18,8 @@ export class Store {
     this.guilds = new Map();
     this.auctions = new Map();
     this.exhibitions = new Map();
+    this.tournaments = new Map();
+    this.treasury = { prize: 0, guild: 0, dev: 0 };
     this.book = new Book();
     this.load();
   }
@@ -31,6 +33,8 @@ export class Store {
       this.guilds = new Map((raw.guilds ?? []).map((g) => [g.id, g]));
       this.auctions = new Map((raw.auctions ?? []).map((a) => [a.id, a]));
       this.exhibitions = new Map((raw.exhibitions ?? []).map((e) => [e.id, e]));
+      this.tournaments = new Map((raw.tournaments ?? []).map((t) => [t.id, t]));
+      this.treasury = raw.treasury ?? { prize: 0, guild: 0, dev: 0 };
       this.book = new Book(raw.book ?? []);
     } catch {
       /* fresh store */
@@ -47,6 +51,8 @@ export class Store {
       guilds: [...this.guilds.values()],
       auctions: [...this.auctions.values()],
       exhibitions: [...this.exhibitions.values()],
+      tournaments: [...this.tournaments.values()],
+      treasury: this.treasury,
       book: this.book.entries,
     }));
     fs.renameSync(tmp, this.file);
@@ -74,6 +80,9 @@ export class Store {
   async listAuctions() { return [...this.auctions.values()]; }
   async getExhibition(id) { return this.exhibitions.get(id) ?? null; }
   async putExhibition(e) { this.exhibitions.set(e.id, e); this.save(); }
+  async getTournament(id) { return this.tournaments.get(id) ?? null; }
+  async putTournament(t) { this.tournaments.set(t.id, t); this.save(); }
+  async listTournaments() { return [...this.tournaments.values()]; }
 
   /** Best daily results per player. */
   async dailyLeaderboard(date) {
