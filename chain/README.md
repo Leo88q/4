@@ -9,6 +9,20 @@
 | `programs/palimpsest_book/` | Anchor-программа: `initialize_book`, `commit_act`, `append_note`, `init_attestation`, `record_work`, `record_fake_exposed` |
 | `sdk/index.js` | Payload-конструкторы записей + mock-адаптер |
 | `sdk/solana.js` | **Билдеры реальных инструкций** (`@solana/web3.js`): дискриминаторы Anchor, Borsh-кодирование, PDA `act`/`attestation`; байтовый layout закреплён юнит-тестами |
+| `sdk/bubblegum.js` | **Минт cNFT** (Metaplex Bubblegum): канонические метаданные (provenance-корень, консервация, «Дыхание времени»), mock-дерево/assetId, план минта + сборка настоящей инструкции `mintV1` офлайн (закреплено тестами: программа `BGUM…`, 9 аккаунтов) |
+
+## cNFT: как это работает
+
+1. `POST /api/artifact/:id/mint` формирует план: канонические метаданные
+   (`buildMetadata`), `metadataHash`, leaf-commitment, позиция в дереве
+   (пресет: depth 14 — 16384 листа, canopy 10).
+2. В mock-режиме план записывается в Книгу (`mint`-запись) и в карточку
+   артефакта — это и есть «паспорт» до подключения цепи.
+3. В режиме `bubblegum` релейер берёт тот же план, аплоадит JSON `uri`
+   (Arweave/IPFS) и исполняет `buildMintV1(...)` — инструкцию, собранную
+   `@metaplex-foundation/mpl-bubblegum`; реальный `assetId` возвращается из DAS.
+4. Проверяемость: `metadataHash` и `leafCommitment` сверяются с записью Книги
+   и с содержимым `uri` — третье лицо может пересчитать оба значения.
 
 ## Режимы работы сервера
 

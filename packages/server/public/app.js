@@ -277,7 +277,17 @@ $('btnFinish').addEventListener('click', async () => {
     <div class="mono">артефакт ${a.id}<br/>merkle ${a.actionsMerkle.slice(0, 24)}…<br/>
     Книга Слоёв: запись #${a.bookSeq}${a.flags.length ? ` · флаги: ${a.flags.join(', ')}` : ''}<br/>
     stateHash сверка: ${a.stateHashMatch === null ? 'не запрошена' : (a.stateHashMatch ? 'совпал ✔' : 'расхождение ✘')}</div>
+    <div class="row"><button id="btnMint">Отчеканить cNFT</button></div>
+    <div id="mintInfo" class="mono muted"></div>
   `;
+  $('btnMint').onclick = async () => {
+    const out = await api(`/api/artifact/${a.id}/mint`, 'POST', {});
+    if (!out.ok) {
+      $('mintInfo').textContent = `минт: ${out.reason}`;
+      return;
+    }
+    $('mintInfo').innerHTML = `cNFT: ${out.mint.assetId} · дерево ${out.mint.tree.slice(0, 16)}… · лист #${out.mint.leafIndex} · Книга #${out.bookSeq}`;
+  };
   refreshMeta();
 });
 

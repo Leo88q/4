@@ -121,6 +121,15 @@ Base URL: `http://<host>:<port>` (по умолчанию `:8787`). Все от�
 Владелец не может расследовать своё дело. Правда спрятана на сервере
 (`evidence().suspicious`); вердикт сверяется с ней.
 
+### cNFT (Metaplex Bubblegum)
+| Метод | Путь | Что делает |
+|---|---|---|
+| POST | `/api/artifact/:id/mint` | минт cNFT-артефакта: план (дерево, leaf index, assetId), метаданные с provenance-корнем и консервацией, запись `mint` в Книгу. Повторный минт — `409 already_minted` |
+| GET | `/api/artifact/:id/metadata` | DAS-метаданные cNFT (buildMetadata из chain-sdk) |
+
+`mint.assetId` в mock-режиме — детерминированная заглушка (`asset_…`); реальный
+id выводится on-chain/DAS после минта через Bubblegum (см. `chain/README.md`).
+
 ## Проверка третьей стороной
 
 1. `actionsMerkle` == `buildMerkle(actionHashes).root` (`@palimpsest/common`).

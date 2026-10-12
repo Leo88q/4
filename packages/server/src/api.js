@@ -27,6 +27,7 @@ import {
   createAuction, placeBid, settleAuction, auctionView, auctionListView,
 } from './social/auction.js';
 import { listCases, investigate, evidence } from './social/pentimento.js';
+import { planMint, buildMetadata } from '@palimpsest/chain-sdk/bubblegum';
 
 const json = (res, code, body) => {
   const data = JSON.stringify(body);
@@ -165,7 +166,7 @@ export function createApi(store, deps = {}) {
         const artifact = await store.getArtifact(id);
         if (!artifact) return bad(res, 404, 'not_found');
         if (meta === 'metadata') {
-          return json(res, 200, cNftMetadata(artifact));
+          return json(res, 200, buildMetadata(artifact));
         }
         const leaves = artifact.actionHashes ?? [];
         const merkle = leaves.length ? buildMerkle(leaves) : null;
@@ -313,6 +314,45 @@ export function createApi(store, deps = {}) {
           return json(res, 200, { ok: true, ...out });
         }
 
+        const mintMatch = pathname.match(/^\/api\/artifact\/([^/]+)\/mint$/);
+        if (mintMatch) {
+          const artifact = await store.getArtifact(mintMatch[1]);
+          if (!artifact) return bad(res, 404, 'not_found');
+          if (artifact.mint) return bad(res, 409, 'already_minted');
+          const leafIndex = store.book.entries.filter((e) => e.type === 'mint').length;
+          const plan = planMint(artifact, leafIndex);
+          artifact.mint = {
+            provider: plan.provider,
+            tree: plan.tree,
+            leafIndex: plan.leafIndex,
+            assetId: plan.assetId,
+            metadataHash: plan.metadataHash,
+            uri: plan.uri,
+            leafCommitment: plan.leafCommitment,
+            mintedAt: Date.now(),
+          };
+          await store.putArtifact(artifact);
+          const mintEntry = await store.appendBook({
+            type: 'mint',
+            playerId: artifact.playerId,
+            artifactId: artifact.id,
+            payload: {
+              event: 'cNFT_mint',
+              tree: plan.tree,
+              leafIndex: plan.leafIndex,
+              assetId: plan.assetId,
+              metadataHash: plan.metadataHash,
+              leafCommitment: plan.leafCommitment,
+            },
+          });
+          return json(res, 200, {
+            ok: true,
+            mint: artifact.mint,
+            bookSeq: mintEntry.seq,
+            metadata: plan.metadata,
+          });
+        }
+
         const actMatch = pathname.match(/^\/api\/session\/([^/]+)\/(actions|finish)$/);
         if (actMatch) {
           const session = await store.getSession(actMatch[1]);
@@ -409,21 +449,4 @@ export function createApi(store, deps = {}) {
   };
 }
 
-/** cNFT metadata (CONCEPT.md, Приложение C). */
-function cNftMetadata(a) {
-  return {
-    name: `«${a.meta.title}», ок. ${a.meta.year} — Акт реставрации ${a.id}`,
-    symbol: 'PLSMT',
-    description: `Восстановлено мастером ${a.playerName}. Книга Слоёв: ${a.provenanceCid}`,
-    attributes: [
-      { trait_type: 'Эпоха', value: a.meta.epoch },
-      { trait_type: 'Индекс Палимпсеста', value: a.score.total },
-      { trait_type: 'Мастер', value: a.playerAddress },
-    ],
-    properties: {
-      provenance_root: a.actionsMerkle,
-      provenance_cid: a.provenanceCid,
-      seed: a.seed,
-    },
-  };
-}
+/** cNFT metadata is built by @palimpsest/chain-sdk/bubblegum (buildMetadata). */

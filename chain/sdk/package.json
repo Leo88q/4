@@ -7,9 +7,13 @@
   "main": "index.js",
   "exports": {
     ".": "./index.js",
-    "./solana": "./solana.js"
+    "./solana": "./solana.js",
+    "./bubblegum": "./bubblegum.js"
   },
   "dependencies": {
+    "@metaplex-foundation/mpl-bubblegum": "^3.1.2",
+    "@metaplex-foundation/umi": "^0.8.10",
+    "@metaplex-foundation/umi-bundle-defaults": "^0.8.10",
     "@palimpsest/common": "0.1.0",
     "@solana/web3.js": "^1.95.0"
   }
