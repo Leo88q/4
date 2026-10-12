@@ -23,6 +23,7 @@ export class PgStore {
     this.client = client;
     this.book = new Book();
     this.treasury = { prize: 0, guild: 0, dev: 0 };
+    this.dao = {};
     this._loaded = false;
   }
 
@@ -42,6 +43,8 @@ export class PgStore {
     this.book = new Book(rows.map((r) => (typeof r.entry === 'string' ? JSON.parse(r.entry) : r.entry)));
     const tr = await this.client.query("SELECT data FROM treasury WHERE id = 'treasury'");
     if (tr.rows.length) this.treasury = { ...this.treasury, ...parse(tr.rows[0].data) };
+    const dao = await this.client.query("SELECT data FROM dao WHERE id = 'dao'");
+    if (dao.rows.length) this.dao = parse(dao.rows[0].data);
     this._loaded = true;
   }
 
@@ -238,12 +241,37 @@ export class PgStore {
     return rows.map((r) => parse(r.data));
   }
 
+  async getProposal(id) {
+    const { rows } = await this.client.query('SELECT data FROM proposals WHERE id = $1', [id]);
+    return rows.length ? parse(rows[0].data) : null;
+  }
+
+  async putProposal(p) {
+    await this.client.query(
+      `INSERT INTO proposals (id, data, status) VALUES ($1, $2, $3)
+       ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, status = EXCLUDED.status`,
+      [p.id, JSON.stringify(p), p.status],
+    );
+  }
+
+  async listProposals() {
+    const { rows } = await this.client.query(
+      'SELECT data FROM proposals ORDER BY created_at DESC LIMIT 50',
+    );
+    return rows.map((r) => parse(r.data));
+  }
+
   async save() {
-    // treasury is the only mutable global; persist it on every save.
+    // treasury/dao — глобальное изменяемое состояние; сохраняем при каждом save.
     await this.client.query(
       `INSERT INTO treasury (id, data) VALUES ('treasury', $1)
        ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
       [JSON.stringify(this.treasury)],
+    );
+    await this.client.query(
+      `INSERT INTO dao (id, data) VALUES ('dao', $1)
+       ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
+      [JSON.stringify(this.dao)],
     );
   }
 }

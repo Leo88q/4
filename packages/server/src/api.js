@@ -21,6 +21,12 @@
  *   POST /api/tournament/:id/enter|start|finish
  *   GET  /api/chapter?playerId=          глава сезона: легенда, квесты, заказ
  *   POST /api/chapter/quest/claim        {playerId, questId}
+ *   GET  /api/rewarded?playerId=         спонсорский просмотр: остаток на день
+ *   POST /api/rewarded                   {playerId, adToken?} +20 Пигментов (лимит 3/день)
+ *   GET  /api/dao                        proto-DAO: предложения и управление сезоном
+ *   POST /api/dao/proposal               {kind, title?, options?, authorPlayerId}
+ *   POST /api/dao/proposal/:id/vote      {playerId, option} — голос Мастерской (вес=престиж)
+ *   POST /api/dao/proposal/:id/close
  */
 import { sha256Hex, hashObject, dailySeedString, mixChainEntropy, merkleProof, buildMerkle } from '@palimpsest/common';
 import { simulate, validateActionLog, generate, SESSION_TTL_MS, SIM_VERSION, conservationOf, agingProjection } from '@palimpsest/sim';
@@ -49,6 +55,10 @@ import {
   currentChapter, getChapter, chapterCard, chapterWeekSeed, questProgress,
   CHAPTER_ORDER_BONUS,
 } from './chapter.js';
+import { REWARDED, rewardedState } from './rewarded.js';
+import {
+  createProposal, voteProposal, closeProposal, daoState, proposalView, PROPOSAL_KINDS,
+} from './dao.js';
 import { planMint, buildMetadata } from '@palimpsest/chain-sdk/bubblegum';
 
 const json = (res, code, body) => {
@@ -305,6 +315,25 @@ export function createApi(store, deps = {}) {
         });
       }
 
+      if (req.method === 'GET' && pathname === '/api/rewarded') {
+        const playerId = new URL(req.url, 'http://x').searchParams.get('playerId');
+        const player = playerId ? await store.getPlayer(playerId) : null;
+        if (!player) return bad(res, 400, 'unknown_player');
+        return json(res, 200, {
+          ok: true,
+          ...rewardedState(store.book.entries, player.id),
+          note: 'награда — только Пигменты; в проде выдача после S2S-подтверждения провайдера рекламы',
+        });
+      }
+
+      if (req.method === 'GET' && pathname === '/api/dao') {
+        return json(res, 200, {
+          ok: true,
+          kinds: PROPOSAL_KINDS,
+          state: await daoState(store),
+        });
+      }
+
       // ---------- writes ----------
       if (req.method === 'POST') {
         const rl = rateLimit(req.socket.remoteAddress ?? 'anon');
@@ -437,6 +466,46 @@ export function createApi(store, deps = {}) {
             reward: quest.reward,
             pigments: player.pigments,
             cosmetics: player.cosmetics,
+          });
+        }
+
+        if (pathname === '/api/rewarded') {
+          const player = await store.getPlayer(body.playerId);
+          if (!player) return bad(res, 400, 'unknown_player');
+          // В демо просмотр подтверждается локально; в проде здесь проверяется
+          // S2S-подпись провайдера рекламы (adToken) — без неё награды нет.
+          const state = rewardedState(store.book.entries, player.id);
+          if (state.left <= 0) return bad(res, 429, 'daily_cap');
+          player.pigments = (player.pigments ?? 0) + REWARDED.pigmentGrant;
+          await store.putPlayer(player);
+          await store.appendBook({
+            type: 'rewarded',
+            playerId: player.id,
+            payload: { event: 'ad_grant', amount: REWARDED.pigmentGrant, date: state.date },
+          });
+          return json(res, 200, {
+            ok: true,
+            granted: REWARDED.pigmentGrant,
+            pigments: player.pigments,
+            ...rewardedState(store.book.entries, player.id),
+          });
+        }
+
+        if (pathname === '/api/dao/proposal') {
+          const p = await createProposal(store, body);
+          return json(res, 200, { ok: true, proposal: proposalView(p) });
+        }
+
+        const daoAct = pathname.match(/^\/api\/dao\/proposal\/([^/]+)\/(vote|close)$/);
+        if (daoAct) {
+          const out = daoAct[2] === 'vote'
+            ? await voteProposal(store, daoAct[1], body)
+            : await closeProposal(store, daoAct[1]);
+          const p = out?.proposal ?? out;
+          return json(res, 200, {
+            ok: true,
+            proposal: proposalView(p),
+            effect: out?.effect ?? null,
           });
         }
 

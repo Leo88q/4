@@ -72,3 +72,16 @@ CREATE TABLE IF NOT EXISTS treasury (
     id   TEXT PRIMARY KEY,
     data JSONB NOT NULL
 );
+
+-- proto-DAO Мастерских (§10): предложения по управлению сезонами.
+CREATE TABLE IF NOT EXISTS proposals (
+    id         TEXT PRIMARY KEY,
+    data       JSONB NOT NULL,
+    status     TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS dao (
+    id   TEXT PRIMARY KEY,
+    data JSONB NOT NULL
+);

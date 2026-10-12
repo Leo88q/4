@@ -441,10 +441,12 @@ async function renderSocial() {
     return;
   }
   if (social.tab === 'season') {
-    const [season, tourns, ch] = await Promise.all([
+    const [season, tourns, ch, rew, dao] = await Promise.all([
       api(`/api/season?playerId=${ui.player.id}`),
       api('/api/tournaments'),
       api(`/api/chapter?playerId=${ui.player.id}`),
+      api(`/api/rewarded?playerId=${ui.player.id}`),
+      api('/api/dao'),
     ]);
     const m = season.manifest ?? { level: 0, xp: 0, premium: false };
     const chapterHtml = ch.ok ? `
@@ -461,6 +463,17 @@ async function renderSocial() {
       </div>` : '';
     box.innerHTML = `
       ${chapterHtml}
+      ${rew.ok ? `<p class="mono">спонсорский просмотр: осталось ${rew.left}/${rew.dailyCap} (+${rew.grant} пигм.)
+        <button id="rWatch">смотреть</button></p>` : ''}
+      ${dao.ok ? `
+      <div class="case">
+        <b>Управление сезоном</b> (proto-DAO Мастерских) · следующая глава: <b>${dao.state.nextTheme ?? '—'}</b>
+        <div class=\"row\"><button id=\"dCreate\">Новое предложение</button></div>
+        <ol>${dao.state.open.map((p) => `
+          <li>${p.title} — голосов Мастерских: ${p.guildVotes} · до ${new Date(p.endsAt).toLocaleDateString('ru')}
+          ${p.options.map((o) => `<button data-pid="${p.id}" data-opt="${o}" class="dVote">${o}</button>`).join('')}
+          <button data-pid="${p.id}" class="dClose">закрыть</button></li>`).join('') || '<li>открытых предложений нет</li>'}</ol>
+      </div>` : ''}
       <p><b>${season.seasonId}</b> · слой Аттестата: <b>${season.tier ?? '—'}</b><br/>
       Манифест: уровень <b>${m.level}</b> · опыт ${m.xp} ${m.premium ? '· глава открыта ✦' : '· глава закрыта'}
       · реставраций ${season.stats.verifiedSessions} · побед ${season.stats.tournamentWins}</p>
@@ -485,6 +498,42 @@ async function renderSocial() {
           const out = await api('/api/chapter/quest/claim', 'POST', { playerId: ui.player.id, questId: b.dataset.qid });
           box.insertAdjacentHTML('afterbegin', out.ok
             ? `<p>награда главы: +${out.reward.pigments} пигментов${out.reward.title ? ` · титул «${out.reward.title}»` : ''} ✔</p>`
+            : `<p>${out.reason}</p>`);
+          renderSocial();
+        };
+      });
+    }
+    if (rew.ok && $('rWatch')) {
+      $('rWatch').onclick = async () => {
+        const out = await api('/api/rewarded', 'POST', { playerId: ui.player.id, adToken: 'mock' });
+        box.insertAdjacentHTML('afterbegin', out.ok
+          ? `<p>спонсорский грант: +${out.granted} пигментов (осталось ${out.left})</p>`
+          : `<p>${out.reason === 'daily_cap' ? 'на сегодня лимит просмотров исчерпан' : out.reason}</p>`);
+        renderSocial();
+      };
+    }
+    if (dao.ok && $('dCreate')) {
+      $('dCreate').onclick = async () => {
+        const kind = prompt('тип предложения: theme (тема главы) или sponsor (казна турниров)', 'theme');
+        if (!kind) return;
+        const out = await api('/api/dao/proposal', 'POST', { kind, authorPlayerId: ui.player.id });
+        if (!out.ok) box.insertAdjacentHTML('afterbegin', `<p>${out.reason}</p>`);
+        renderSocial();
+      };
+      box.querySelectorAll('.dVote').forEach((b) => {
+        b.onclick = async () => {
+          const out = await api(`/api/dao/proposal/${b.dataset.pid}/vote`, 'POST', {
+            playerId: ui.player.id, option: b.dataset.opt,
+          });
+          if (!out.ok) box.insertAdjacentHTML('afterbegin', `<p>${out.reason}</p>`);
+          renderSocial();
+        };
+      });
+      box.querySelectorAll('.dClose').forEach((b) => {
+        b.onclick = async () => {
+          const out = await api(`/api/dao/proposal/${b.dataset.pid}/close`, 'POST', {});
+          box.insertAdjacentHTML('afterbegin', out.ok
+            ? `<p>решение: ${out.proposal.result.winner}${out.effect?.nextTheme ? ` · следующая глава «${out.effect.nextTheme}»` : ''}${out.effect?.movedToPrize ? ` · в фонд турниров +${out.effect.movedToPrize}` : ''}</p>`
             : `<p>${out.reason}</p>`);
           renderSocial();
         };
