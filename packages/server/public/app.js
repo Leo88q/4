@@ -196,6 +196,7 @@ $('btnEnter').addEventListener('click', async () => {
   $('playerInfo').textContent = `${out.player.name} · ${out.player.address.slice(0, 12)}…`;
   $('btnStart').disabled = false;
   $('btnPrivate').disabled = false;
+  refreshOwnedFrame();
 });
 
 async function startSession(kind, extra = {}) {
@@ -279,6 +280,7 @@ $('btnFinish').addEventListener('click', async () => {
     $('mintInfo').innerHTML = `cNFT: ${out.mint.assetId} · дерево ${out.mint.tree.slice(0, 16)}… · лист #${out.mint.leafIndex} · Книга #${out.bookSeq}`;
   };
   paintGallery(ui.puzzle, ui.sim);
+  refreshOwnedFrame();
   refreshMeta();
 });
 
@@ -317,6 +319,28 @@ async function paintGallery(puzzle, sim) {
   });
   const gctx = canvas.getContext('2d');
   gctx.putImageData(new ImageData(new Uint8ClampedArray(out.buffer), 512, 512), 0, 0);
+}
+
+// ---------- рама по факту владения (косметика, не влияет на механику) ----------
+const OWNED_FRAMES = [
+  { name: 'Рама «Сусальное золото»', url: '/assets/frames/gold-leaf.png', slice: 115 },
+  { name: 'Рама «Кракелюр»', url: '/assets/frames/crackle.png', slice: 115 },
+];
+
+async function refreshOwnedFrame() {
+  const wrap = document.getElementById('frameWrap');
+  if (!wrap || !ui.player) return;
+  const names = new Set();
+  try {
+    const season = await api(`/api/season?playerId=${ui.player.id}`);
+    (season.owned ?? []).forEach((n) => names.add(n));
+    const ch = await api(`/api/chapter?playerId=${ui.player.id}`);
+    (ch.claimedTitles ?? []).forEach((n) => names.add(n));
+  } catch { /* рама — косметика; канон реставрации не трогаем */ }
+  const hit = OWNED_FRAMES.find((f) => names.has(f.name));
+  wrap.style.borderImage = hit
+    ? `url(${hit.url}) ${hit.slice} fill stretch`
+    : `url('/assets/frames/gilded.png') 70 fill stretch`;
 }
 
 function bar(label, v) {
@@ -519,20 +543,30 @@ async function renderSocial() {
           <div class="item-card"><img src="/assets/items/${file}.png" alt="${name}" />${name}</div>`).join('')}
       </div>`;
     const rewardCatalog = [
-      ['Рама «Кракелюр»', 'frame-crackle'],
-      ['Рама «Сусальное золото»', 'frame-gold'],
-      ['Тема «Лазурит»', 'theme-lazurite'],
-      ['Тема «Пентименто»', 'theme-pentimento'],
-      ['Инструмент «Кисть реставратора»', 'brush'],
+      [['Тема «Охра»'], 'Тема «Охра»', 'items/theme-okhra.png'],
+      [['Пигменты ×50', 'Пигменты ×100', 'Пигменты ×150'], 'Пигменты ×50–150', 'items/pigments-jar.png'],
+      [['Рама «Кракелюр»'], 'Рама «Кракелюр»', 'items/frame-crackle.png'],
+      [['Тема «Грунт»'], 'Тема «Грунт»', 'items/theme-grunt.png'],
+      [['Зал «Открытый склад» (Аттестат)'], 'Зал «Открытый склад»', 'items/hall-storage.png'],
+      [['Тема «Лазурит»'], 'Тема «Лазурит»', 'items/theme-lazurite.png'],
+      [['Инструмент «Кисть реставратора»'], 'Кисть реставратора', 'items/brush.png'],
+      [['Рама «Сусальное золото»'], 'Рама «Сусальное золото»', 'items/frame-gold.png'],
+      [['Тема «Пентименто»'], 'Тема «Пентименто»', 'items/theme-pentimento.png'],
+      [['Инструмент «Шпатель Смотрителя»'], 'Шпатель Смотрителя', 'items/spatula.png'],
+      [['Зал «Лазурит» (Аттестат)'], 'Зал «Лазурит»', 'items/hall-lazurite.png'],
+      [['Титул «Свидетель Потемнения»'], 'Титул «Свидетель Потемнения»', 'chapters/chapter-1-darkening.jpg'],
+      [['Титул «Носитель Чёрного лака»'], 'Титул «Носитель Чёрного лака»', 'chapters/chapter-2-black-lacquer.jpg'],
+      [['Титул «Хранитель Влаги»'], 'Титул «Хранитель Влаги»', 'chapters/chapter-3-salt-water.jpg'],
     ];
     const ownedSet = new Set([...(season.owned ?? []), ...(ch.claimedTitles ?? [])]);
+    refreshOwnedFrame();
     const catalogHtml = `
       <div class="catalog">
-        <div class="gallery-title">Каталог наград Манифеста</div>
+        <div class="gallery-title">Каталог наград Манифеста и глав</div>
         <div class="items-shelf">
-          ${rewardCatalog.map(([name, file]) => `
-            <div class="item-card${ownedSet.has(name) ? ' owned' : ''}">
-              <img src="/assets/items/${file}.png" alt="${name}" />${name}${ownedSet.has(name) ? ' ✔' : ''}
+          ${rewardCatalog.map(([names, label, icon]) => `
+            <div class="item-card${names.some((n) => ownedSet.has(n)) ? ' owned' : ''}">
+              <img src="/assets/${icon}" alt="${label}" />${label}${names.some((n) => ownedSet.has(n)) ? ' ✔' : ''}
             </div>`).join('')}
         </div>
       </div>`;
