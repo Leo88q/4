@@ -46,7 +46,8 @@ test('глава II «Чёрный лак»: реестр, метрики кве
   assert.equal(resolveChapter('chapter-2-black-lacquer').id, 'chapter-2-black-lacquer');
   assert.equal(resolveChapter(null).id, 'chapter-1-darkening', 'без выбора — сезон 2026-Q4');
   assert.equal(getChapterByTheme('Чёрный лак'), ch2);
-  assert.equal(getChapterByTheme('Огненная летопись'), null, 'тема без главы — null');
+  assert.equal(getChapterByTheme('Огненная летопись')?.id, 'chapter-4-fire-chronicle',
+    'тема DAO «Огненная летопись» теперь играбельна (глава IV)');
 
   // глава III «Соль и влага» — третья тема голосования DAO тоже играбельна
   const ch3 = getChapter('chapter-3-salt-water');
@@ -85,6 +86,51 @@ test('глава II «Чёрный лак»: реестр, метрики кве
   assert.equal(byId.exposer.complete, true);
   assert.equal(byId.guildmate.complete, true);
   assert.equal(byId.champion2.progress, 1, 'одна победа из двух');
+});
+
+test('глава IV «Огненная летопись»: пожар архива каталогов, чтение слоёв как диагноз', () => {
+  const ch4 = getChapter('chapter-4-fire-chronicle');
+  assert.ok(ch4, 'глава IV в реестре');
+  assert.equal(ch4.number, 4);
+  assert.equal(ch4.theme, 'Огненная летопись', 'тема совпадает с вариантом голосования DAO');
+  assert.equal(ch4.seasonId, 'palimpsest-season-v1:2027-Q3');
+  assert.match(ch4.hook, /каталог|огн|пожар/i, 'легенда — пожар в архиве каталогов');
+  assert.equal(getChapterByTheme('Огненная летопись'), ch4);
+
+  // календарь: сезон 2027-Q3 принадлежит главе IV
+  assert.equal(currentChapter(Date.UTC(2027, 7, 1)).id, 'chapter-4-fire-chronicle');
+  assert.equal(resolveChapter(null, Date.UTC(2027, 7, 1)).id, 'chapter-4-fire-chronicle');
+  assert.equal(resolveChapter('chapter-4-fire-chronicle').id, 'chapter-4-fire-chronicle');
+
+  const card = chapterCard(ch4);
+  assert.match(card.weekSeed, /^palimpsest-chapter-v1:chapter-4-fire-chronicle:\d{4}-W\d{2}$/);
+
+  // метрики главы IV: заказ, консервации, эталоны 90, разоблачения, победы
+  const ctx = {
+    artifacts: [
+      { kind: 'chapter', conservation: {}, score: { total: 92 } },
+      { conservation: {}, score: { total: 80 } },
+      { score: { total: 96 } },
+      { score: { total: 70 } },
+    ],
+    bookEntries: [
+      { type: 'verdict', playerId: 'p1', payload: { verdict: 'fake', correct: true } },
+      { type: 'verdict', playerId: 'p1', payload: { verdict: 'fake', correct: true } },
+      { type: 'verdict', playerId: 'p1', payload: { verdict: 'fake', correct: false } },
+      {
+        type: 'tournament', playerId: 'p1',
+        payload: { event: 'finished', rewards: { places: [{ playerId: 'p1' }] } },
+      },
+    ],
+  };
+  const prog = Object.fromEntries(questProgress(ch4, ctx).map((q) => [q.id, q]));
+  assert.equal(prog.order.progress, 1);
+  assert.equal(prog.conservator4.progress, 2);
+  assert.equal(prog.restorer25.progress, 4);
+  assert.equal(prog.trinity90.progress, 2, 'эталоны 92 и 96');
+  assert.equal(prog.exposer7.progress, 2, 'верные вердикты «подмалёвок»');
+  assert.equal(prog.champion4.progress, 1);
+  assert.equal(prog.order.reward.title, 'Летописец Огня', 'титул заказа главы');
 });
 
 test('квесты главы: прогресс считается из Книги и артефактов', () => {

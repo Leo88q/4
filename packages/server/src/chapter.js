@@ -210,6 +210,72 @@ export const CHAPTERS = [
       },
     ],
   },
+  {
+    id: 'chapter-4-fire-chronicle',
+    number: 4,
+    seasonId: 'palimpsest-season-v1:2027-Q3',
+    theme: 'Огненная летопись',
+    title: 'Огненная летопись',
+    subtitle: 'Пепельный слой',
+    motto: 'Огонь пишет слой — Книга читает его.',
+    hook: 'Пожар в архиве каталогов сжёг описи, но не слои: копоть, подпалины и '
+      + 'вздувшийся лак стали летописью огня на самих полотнах. Мастерская читает '
+      + 'огненный слой как диагноз и восстанавливает утраченные каталоги — '
+      + 'то есть провенанс: имя, путь и судьбу каждой работы.',
+    lore: 'docs/lore.md §8 «Огненная летопись» (пожар в архиве каталогов)',
+    orderTitle: 'Из Схрона: полотно из архива каталогов',
+    weekSeedPrefix: 'palimpsest-chapter-v1:chapter-4-fire-chronicle',
+    quests: [
+      {
+        id: 'order',
+        metric: 'order',
+        title: 'Заказ главы',
+        description: 'Завершить реставрацию заказа главы (раз в неделю единый холст для всех)',
+        target: 1,
+        reward: { pigments: 60, title: 'Летописец Огня' },
+      },
+      {
+        id: 'conservator4',
+        metric: 'conservations',
+        title: 'Диагноз горения',
+        description: 'Завершить 4 реставрации с консервацией (новый лак зафиксирован)',
+        target: 4,
+        reward: { pigments: 110 },
+      },
+      {
+        id: 'restorer25',
+        metric: 'restorations',
+        title: 'Двадцать пять слоёв',
+        description: 'Завершить 25 реставраций',
+        target: 25,
+        reward: { pigments: 160 },
+      },
+      {
+        id: 'trinity90',
+        metric: 'index90',
+        title: 'Три эталона',
+        description: 'Три реставрации с Индексом Палимпсеста ≥ 90',
+        target: 3,
+        reward: { pigments: 180 },
+      },
+      {
+        id: 'exposer7',
+        metric: 'fakes_exposed',
+        title: 'Семь почерков',
+        description: 'Раскрыть 7 подмалёвков в Пентименто',
+        target: 7,
+        reward: { pigments: 210 },
+      },
+      {
+        id: 'champion4',
+        metric: 'tournament_wins',
+        title: 'Четырежды на стене',
+        description: 'Победить в четырёх турнирах',
+        target: 4,
+        reward: { pigments: 320 },
+      },
+    ],
+  },
 ];
 
 /** Бонус Пигментов за завершение заказа главы. */

@@ -557,6 +557,7 @@ async function renderSocial() {
       [['Титул «Свидетель Потемнения»'], 'Титул «Свидетель Потемнения»', 'chapters/chapter-1-darkening.jpg'],
       [['Титул «Носитель Чёрного лака»'], 'Титул «Носитель Чёрного лака»', 'chapters/chapter-2-black-lacquer.jpg'],
       [['Титул «Хранитель Влаги»'], 'Титул «Хранитель Влаги»', 'chapters/chapter-3-salt-water.jpg'],
+      [['Титул «Летописец Огня»'], 'Титул «Летописец Огня»', 'chapters/chapter-4-fire-chronicle.jpg'],
     ];
     const ownedSet = new Set([...(season.owned ?? []), ...(ch.claimedTitles ?? [])]);
     refreshOwnedFrame();
