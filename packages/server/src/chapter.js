@@ -342,6 +342,73 @@ export const CHAPTERS = [
       },
     ],
   },
+  {
+    id: 'chapter-6-pentimento',
+    number: 6,
+    seasonId: 'palimpsest-season-v1:2028-Q1',
+    theme: 'Пентименто',
+    title: 'Пентименто',
+    subtitle: 'Тайна Мары и Призрака',
+    motto: 'Иначе правда умирает вместе с мастером.',
+    hook: 'Под слоями всплывает то, что пытались скрыть: ранние подмалёвки, '
+      + 'чужие имена, первый акт Книги. Мара-Архивариус нашла имя забытого '
+      + 'мастера под чёрным лаком — и с тех пор в Книгу приходят анонимные акты '
+      + 'Призрака. Мастерская читает пентименто как улики, а последнее слово '
+      + 'за сообществом: только Мастерские решат, кто такой Призрак.',
+    lore: 'docs/lore.md §8 «Пентименто» (тайна Мары и Призрака), §3 «Манифест Слоёв»',
+    orderTitle: 'Из Схрона: дело о Призраке Палимпсеста',
+    weekSeedPrefix: 'palimpsest-chapter-v1:chapter-6-pentimento',
+    quests: [
+      {
+        id: 'order',
+        metric: 'order',
+        title: 'Заказ главы',
+        description: 'Завершить реставрацию заказа главы (раз в неделю единый холст для всех)',
+        target: 1,
+        reward: { pigments: 60, title: 'Свидетель Призрака' },
+      },
+      {
+        id: 'guildmate',
+        metric: 'guild_events',
+        title: 'Совет Мастерских',
+        description: 'Состоять в Мастерской (вступить или основать)',
+        target: 1,
+        reward: { pigments: 100 },
+      },
+      {
+        id: 'exhibitor6',
+        metric: 'exhibits',
+        title: 'Шесть открытых слоёв',
+        description: 'Показать 6 работ на Вернисаже',
+        target: 6,
+        reward: { pigments: 160 },
+      },
+      {
+        id: 'restorer40',
+        metric: 'restorations',
+        title: 'Сорок слоёв',
+        description: 'Завершить 40 реставраций',
+        target: 40,
+        reward: { pigments: 200 },
+      },
+      {
+        id: 'exposer12',
+        metric: 'fakes_exposed',
+        title: 'Двенадцать почерков',
+        description: 'Раскрыть 12 подмалёвков в Пентименто',
+        target: 12,
+        reward: { pigments: 240 },
+      },
+      {
+        id: 'champion6',
+        metric: 'tournament_wins',
+        title: 'Шесть имён на стене',
+        description: 'Победить в шести турнирах',
+        target: 6,
+        reward: { pigments: 380 },
+      },
+    ],
+  },
 ];
 
 /** Бонус Пигментов за завершение заказа главы. */

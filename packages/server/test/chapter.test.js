@@ -173,6 +173,53 @@ test('глава V «Серая Дымка»: расследование Пот�
   assert.equal(prog.order.reward.title, 'Следопыт Дымки', 'титул заказа главы');
 });
 
+test('глава VI «Пентименто»: тайна Мары и Призрака, правда первого акта Книги', () => {
+  const ch6 = getChapter('chapter-6-pentimento');
+  assert.ok(ch6, 'глава VI в реестре');
+  assert.equal(ch6.number, 6);
+  assert.equal(ch6.theme, 'Пентименто', 'тема совпадает с вариантом голосования DAO');
+  assert.equal(ch6.seasonId, 'palimpsest-season-v1:2028-Q1');
+  assert.match(ch6.hook, /Мар|Призрак|подмал/i, 'легенда — тайна Мары и Призрака');
+  assert.match(ch6.motto, /правда умирает/, 'голос Манифеста Мары (docs/lore.md §3)');
+  assert.equal(getChapterByTheme('Пентименто'), ch6);
+
+  // календарь: сезон 2028-Q1 принадлежит главе VI
+  assert.equal(currentChapter(Date.UTC(2028, 1, 1)).id, 'chapter-6-pentimento');
+  assert.equal(resolveChapter(null, Date.UTC(2028, 1, 1)).id, 'chapter-6-pentimento');
+  assert.equal(resolveChapter('chapter-6-pentimento').id, 'chapter-6-pentimento');
+
+  const card = chapterCard(ch6);
+  assert.match(card.weekSeed, /^palimpsest-chapter-v1:chapter-6-pentimento:\d{4}-W\d{2}$/);
+
+  // «Все» механики: заказ, гильдия, Вернисаж, реставрации, пентименто, турниры
+  const ctx = {
+    artifacts: [
+      { kind: 'chapter', score: { total: 91 } },
+      { score: { total: 70 } },
+      { score: { total: 96 } },
+    ],
+    bookEntries: [
+      { type: 'guild', playerId: 'p1', payload: { event: 'joined' } },
+      { type: 'exhibit', playerId: 'p1' },
+      { type: 'verdict', playerId: 'p1', payload: { verdict: 'fake', correct: true } },
+      { type: 'verdict', playerId: 'p1', payload: { verdict: 'fake', correct: false } },
+      {
+        type: 'tournament', playerId: 'p1',
+        payload: { event: 'finished', rewards: { places: [{ playerId: 'p1' }] } },
+      },
+    ],
+  };
+  const prog = Object.fromEntries(questProgress(ch6, ctx).map((q) => [q.id, q]));
+  assert.equal(prog.order.progress, 1);
+  assert.equal(prog.guildmate.progress, 1);
+  assert.equal(prog.guildmate.complete, true);
+  assert.equal(prog.exhibitor6.progress, 1);
+  assert.equal(prog.restorer40.progress, 3);
+  assert.equal(prog.exposer12.progress, 1, 'только верные вердикты');
+  assert.equal(prog.champion6.progress, 1);
+  assert.equal(prog.order.reward.title, 'Свидетель Призрака', 'титул заказа главы');
+});
+
 test('квесты главы: прогресс считается из Книги и артефактов', () => {
   const ch = CHAPTERS[0];
   const ctx = {

@@ -594,6 +594,7 @@ async function renderSocial() {
       [['Титул «Хранитель Влаги»'], 'Титул «Хранитель Влаги»', 'chapters/chapter-3-salt-water.jpg'],
       [['Титул «Летописец Огня»'], 'Титул «Летописец Огня»', 'chapters/chapter-4-fire-chronicle.jpg'],
       [['Титул «Следопыт Дымки»'], 'Титул «Следопыт Дымки»', 'chapters/chapter-5-gray-haze.jpg'],
+      [['Титул «Свидетель Призрака»'], 'Титул «Свидетель Призрака»', 'chapters/chapter-6-pentimento.jpg'],
     ];
     const ownedSet = new Set([...(season.owned ?? []), ...(ch.claimedTitles ?? [])]);
     refreshOwnedCosmetics();
